@@ -43,8 +43,8 @@ local ROLE_COLOR = {
 }
 
 local LP_COLOR = {
-    norole  = Color3.fromRGB(255, 200, 0),
-    sheriff = Color3.fromRGB(0,   100, 255),
+    norole  = Color3.fromRGB(0, 255, 80),
+    sheriff = Color3.fromRGB(0, 100, 255),
 }
 
 local rayParams      = RaycastParams.new()
@@ -82,10 +82,9 @@ local function attachGunDropHighlight(part)
         local hl               = Instance.new("Highlight")
         hl.Adornee             = part
         hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
-        hl.FillColor           = Color3.fromRGB(0, 255, 80)
-        hl.FillTransparency    = 0.6
+        hl.FillTransparency    = 1
         hl.OutlineColor        = Color3.fromRGB(0, 255, 80)
-        hl.OutlineTransparency = 0.7
+        hl.OutlineTransparency = 0.6
         hl.Parent              = part
         gunDropHighlights[part] = hl
     end)
@@ -151,9 +150,9 @@ local function attachLpVisual(p, char, color)
         hl.Name                = "LpEspHighlight"
         hl.Adornee             = char
         hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
-        hl.FillTransparency    = 0.6
+        hl.FillTransparency    = 1
         hl.OutlineColor        = color
-        hl.OutlineTransparency = 0.7
+        hl.OutlineTransparency = 0.6
         hl.Parent              = char
         lpVisuals[p]           = { hl = hl, color = color }
     end)
@@ -175,9 +174,9 @@ local function attachVisuals(p, char, role)
         hl.Name                = "RoleHighlight"
         hl.Adornee             = char
         hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
-        hl.FillTransparency    = 0.6
+        hl.FillTransparency    = 1
         hl.OutlineColor        = ROLE_COLOR[role]
-        hl.OutlineTransparency = 0.7
+        hl.OutlineTransparency = 0.6
         hl.Parent              = char
         visuals[p]             = { highlight = hl }
     end)
