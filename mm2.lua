@@ -268,7 +268,7 @@ local function getAimPosition()
 
     local vel  = hrp.AssemblyLinearVelocity
     local hVel = Vector3.new(vel.X, 0, vel.Z)
-    if hVel.Magnitude >= 15 then
+    if hVel.Magnitude >= 15.8 then
         return target.Position + hVel.Unit * WALK_LEAD
     end
 
