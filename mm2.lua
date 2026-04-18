@@ -47,6 +47,24 @@ local LP_COLOR = {
 local rayParams       = RaycastParams.new()
 rayParams.FilterType  = Enum.RaycastFilterType.Exclude
 
+-- ── Aim sphere ────────────────────────────────────────────────────────────────
+local aimSphere           = Instance.new("Part")
+aimSphere.Name            = "AimSphere"
+aimSphere.Size            = Vector3.new(0.8, 0.8, 0.8)
+aimSphere.Anchored        = true
+aimSphere.CanCollide      = false
+aimSphere.Transparency    = 1
+aimSphere.Parent          = Workspace
+local aimMesh             = Instance.new("SpecialMesh", aimSphere)
+aimMesh.MeshType          = Enum.MeshType.Sphere
+local aimHL               = Instance.new("Highlight", aimSphere)
+aimHL.Adornee             = aimSphere
+aimHL.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
+aimHL.FillColor           = Color3.fromRGB(255, 0, 0)
+aimHL.FillTransparency    = 1
+aimHL.OutlineTransparency = 1
+aimHL.Parent              = aimSphere
+
 -- ── Gun drop ESP ──────────────────────────────────────────────────────────────
 local function attachGunDropHighlight(part)
     if gunDropHighlights[part] then return end
@@ -97,7 +115,7 @@ end
 local function setWalkSpeed(char)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if hum then
-        hum.WalkSpeed = 19
+        hum.WalkSpeed = 18
     else
         char.ChildAdded:Connect(function(child)
             if child:IsA("Humanoid") then child.WalkSpeed = 18 end
@@ -259,7 +277,8 @@ RunService.Heartbeat:Connect(function(dt)
 
     local ok, err = pcall(function()
         local myChar      = lp.Character
-        local isLpMurd    = myChar and myChar:FindFirstChild("Knife") ~= nil
+        local bp          = lp:FindFirstChild("Backpack")
+        local isLpMurd    = bp ~= nil and bp:FindFirstChild("Knife") ~= nil
         local newMurderer = nil
 
         for _, p in ipairs(Players:GetPlayers()) do
@@ -310,6 +329,14 @@ RunService.Heartbeat:Connect(function(dt)
         lbl.Text = murderer and ("⚠ " .. murderer.Name) or ""
 
         scanGunDrops()
+
+        local aimPos = getAimPosition()
+        if aimPos then
+            aimSphere.Position     = aimPos
+            aimHL.FillTransparency = 0.5
+        else
+            aimHL.FillTransparency = 1
+        end
     end)
     if not ok then warn("[SilentAim] Scan: " .. tostring(err)) end
 end)
