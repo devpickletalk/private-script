@@ -1,6 +1,9 @@
 -- LocalScript: StarterPlayerScripts
 
-local WALK_LEAD = 3
+if _G.__MurderHUD_Running then return end
+_G.__MurderHUD_Running = true
+
+local WALK_LEAD = 1.5
 local SCAN_RATE = 0.3
 
 local Players    = game:GetService("Players")
@@ -57,7 +60,7 @@ aimSphere.Anchored        = true
 aimSphere.CanCollide      = false
 aimSphere.Color           = Color3.fromRGB(255, 0, 0)
 aimSphere.Material        = Enum.Material.Neon
-aimSphere.Transparency    = 0.5
+aimSphere.Transparency    = 0.6
 aimSphere.CastShadow      = false
 aimSphere.Position        = HIDE_POS
 aimSphere.Parent          = Workspace
@@ -276,8 +279,19 @@ local function getShootRemote()
 end
 
 -- ── Scan loop ─────────────────────────────────────────────────────────────────
-local scanAccum = 0
+local scanAccum   = 0
+local sphereAccum = 0
 RunService.Heartbeat:Connect(function(dt)
+    sphereAccum += dt
+    if sphereAccum >= 0.1 then
+        sphereAccum = 0
+        local ok, err = pcall(function()
+            local aimPos       = getAimPosition()
+            aimSphere.Position = aimPos or HIDE_POS
+        end)
+        if not ok then warn("[SilentAim] Sphere: " .. tostring(err)) end
+    end
+
     scanAccum += dt
     if scanAccum < SCAN_RATE then return end
     scanAccum = 0
@@ -335,13 +349,6 @@ RunService.Heartbeat:Connect(function(dt)
         lbl.Text = murderer and ("⚠ " .. murderer.Name) or ""
 
         scanGunDrops()
-
-        local aimPos = getAimPosition()
-        if aimPos then
-            aimSphere.Position = aimPos
-        else
-            aimSphere.Position = HIDE_POS
-        end
     end)
     if not ok then warn("[SilentAim] Scan: " .. tostring(err)) end
 end)
