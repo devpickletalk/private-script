@@ -3,7 +3,7 @@
 if _G.__MurderHUD_Running then return end
 _G.__MurderHUD_Running = true
 
-local WALK_LEAD = 3
+local WALK_LEAD = 3.5
 local SCAN_RATE = 0.3
 
 local Players    = game:GetService("Players")
@@ -247,7 +247,12 @@ local function getAimPosition()
     local hrp   = char:FindFirstChild("HumanoidRootPart")
     local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
     local head  = char:FindFirstChild("Head")
+    local hum   = char:FindFirstChildOfClass("Humanoid")
     if not hrp then return nil end
+
+    if hum and hum.FloorMaterial == Enum.Material.Air then
+        return hrp.Position - Vector3.new(0, 3, 0)
+    end
 
     local target = torso or hrp
 
@@ -262,7 +267,7 @@ local function getAimPosition()
 
     local vel  = hrp.AssemblyLinearVelocity
     local hVel = Vector3.new(vel.X, 0, vel.Z)
-    if hVel.Magnitude > 2 then
+    if hVel.Magnitude >= 14 then
         return target.Position + hVel.Unit * WALK_LEAD
     end
 
@@ -283,7 +288,7 @@ local scanAccum   = 0
 local sphereAccum = 0
 RunService.Heartbeat:Connect(function(dt)
     sphereAccum += dt
-    if sphereAccum >= 0.00001 then
+    if sphereAccum >= 0.1 then
         sphereAccum = 0
         local ok, err = pcall(function()
             local aimPos       = getAimPosition()
