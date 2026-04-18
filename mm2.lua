@@ -62,7 +62,7 @@ aimSphere.Anchored     = true
 aimSphere.CanCollide   = false
 aimSphere.Color        = Color3.fromRGB(255, 0, 0)
 aimSphere.Material     = Enum.Material.Neon
-aimSphere.Transparency = 0.6
+aimSphere.Transparency = 0.5
 aimSphere.CastShadow   = false
 aimSphere.Position     = HIDE_POS
 aimSphere.Parent       = Workspace
@@ -78,7 +78,7 @@ local function attachGunDropHighlight(part)
         hl.DepthMode            = Enum.HighlightDepthMode.AlwaysOnTop
         hl.FillTransparency     = 1
         hl.OutlineColor         = Color3.fromRGB(0, 255, 80)
-        hl.OutlineTransparency  = 0.6
+        hl.OutlineTransparency  = 0.5
         hl.Parent               = part
         gunDropHighlights[part] = hl
     end)
@@ -151,7 +151,7 @@ local function attachLpVisual(p, char, color)
         hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
         hl.FillTransparency    = 1
         hl.OutlineColor        = color
-        hl.OutlineTransparency = 0.6
+        hl.OutlineTransparency = 0.5
         hl.Parent              = char
         lpVisuals[p]           = { hl = hl, color = color }
     end)
@@ -175,7 +175,7 @@ local function attachVisuals(p, char, role)
         hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
         hl.FillTransparency    = 1
         hl.OutlineColor        = ROLE_COLOR[role]
-        hl.OutlineTransparency = 0.6
+        hl.OutlineTransparency = 0.5
         hl.Parent              = char
         visuals[p]             = { highlight = hl }
     end)
@@ -319,7 +319,7 @@ local function getKnifeAimPosition(p)
     local target = torso or hrp
     local vel    = hrp.AssemblyLinearVelocity
     local hVel   = Vector3.new(vel.X, 0, vel.Z)
-    if hVel.Magnitude >= 15 then
+    if hVel.Magnitude >= 15.8 then
         return target.Position + hVel.Unit * KNIFE_LEAD
     end
 
