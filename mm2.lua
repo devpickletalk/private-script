@@ -1,7 +1,7 @@
 -- LocalScript: StarterPlayerScripts
 
-local WALK_LEAD = 3
-local SCAN_RATE = 0.1
+local WALK_LEAD = 1
+local SCAN_RATE = 0.3
 
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -97,7 +97,7 @@ end
 local function setWalkSpeed(char)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if hum then
-        hum.WalkSpeed = 18
+        hum.WalkSpeed = 19
     else
         char.ChildAdded:Connect(function(child)
             if child:IsA("Humanoid") then child.WalkSpeed = 18 end
