@@ -3,7 +3,7 @@
 if _G.__MurderHUD_Running then return end
 _G.__MurderHUD_Running = true
 
-local WALK_LEAD = 1.5
+local WALK_LEAD = 2
 local SCAN_RATE = 0.3
 
 local Players    = game:GetService("Players")
@@ -283,7 +283,7 @@ local scanAccum   = 0
 local sphereAccum = 0
 RunService.Heartbeat:Connect(function(dt)
     sphereAccum += dt
-    if sphereAccum >= 0.1 then
+    if sphereAccum >= 0.00001 then
         sphereAccum = 0
         local ok, err = pcall(function()
             local aimPos       = getAimPosition()
