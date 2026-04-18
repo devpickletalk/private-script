@@ -3,7 +3,7 @@
 if _G.__MurderHUD_Running then return end
 _G.__MurderHUD_Running = true
 
-local WALK_LEAD = 3.5
+local WALK_LEAD = 4
 local SCAN_RATE = 0.3
 
 local Players    = game:GetService("Players")
@@ -117,7 +117,7 @@ end
 local function setWalkSpeed(char)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if hum then
-        hum.WalkSpeed = 18
+        hum.WalkSpeed = 20
     else
         char.ChildAdded:Connect(function(child)
             if child:IsA("Humanoid") then child.WalkSpeed = 20 end
@@ -245,7 +245,7 @@ local function getAimPosition()
     local isAir      = hum and hum.FloorMaterial == Enum.Material.Air
     local isClimbing = hum and hum:GetState() == Enum.HumanoidStateType.Climbing
     if isAir and not isClimbing then
-        return hrp.Position - Vector3.new(0, 3, 0)
+        return hrp.Position - Vector3.new(0, 2, 0)
     end
 
     local target = torso or hrp
@@ -261,7 +261,7 @@ local function getAimPosition()
 
     local vel  = hrp.AssemblyLinearVelocity
     local hVel = Vector3.new(vel.X, 0, vel.Z)
-    if hVel.Magnitude >= 14 then
+    if hVel.Magnitude >= 16 then
         return target.Position + hVel.Unit * WALK_LEAD
     end
 
