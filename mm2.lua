@@ -27,55 +27,88 @@ lbl.TextXAlignment         = Enum.TextXAlignment.Right
 lbl.Text                   = ""
 
 -- ── State ────────────────────────────────────────────────────────────────────
-local roles       = {}
-local stickyRoles = {}
-local visuals     = {}
-local lpVisuals   = {}
-local murderer    = nil
-
-local sheriffGunPart = nil
-local sheriffGunPos  = nil
+local roles             = {}
+local stickyRoles       = {}
+local visuals           = {}
+local lpVisuals         = {}
+local murderer          = nil
+local gunDropHighlights = {}
 
 local ROLE_COLOR = {
     murder  = Color3.fromRGB(255, 0,   0),
     sheriff = Color3.fromRGB(0,   100, 255),
 }
 
-local rayParams            = RaycastParams.new()
-rayParams.FilterType       = Enum.RaycastFilterType.Exclude
+local LP_COLOR = {
+    norole  = Color3.fromRGB(255, 200, 0),
+    sheriff = Color3.fromRGB(0,   100, 255),
+}
 
--- ── Sheriff gun drop ──────────────────────────────────────────────────────────
-local function clearSheriffGun()
-    if sheriffGunPart and sheriffGunPart.Parent then sheriffGunPart:Destroy() end
-    sheriffGunPart = nil
-    sheriffGunPos  = nil
+local rayParams       = RaycastParams.new()
+rayParams.FilterType  = Enum.RaycastFilterType.Exclude
+
+-- ── Gun drop ESP ──────────────────────────────────────────────────────────────
+local function attachGunDropHighlight(part)
+    if gunDropHighlights[part] then return end
+    local ok, err = pcall(function()
+        local hl               = Instance.new("Highlight")
+        hl.Adornee             = part
+        hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.FillColor           = Color3.fromRGB(0, 255, 80)
+        hl.FillTransparency    = 0.5
+        hl.OutlineColor        = Color3.fromRGB(0, 255, 80)
+        hl.OutlineTransparency = 0
+        hl.Parent              = part
+        gunDropHighlights[part] = hl
+    end)
+    if not ok then warn("[SilentAim] GunDrop highlight: " .. tostring(err)) end
 end
 
-local function placeSheriffGun(pos)
-    clearSheriffGun()
-    sheriffGunPos       = pos
-    local part          = Instance.new("Part")
-    part.Size           = Vector3.new(1, 1, 1)
-    part.Position       = pos
-    part.Anchored       = true
-    part.CanCollide     = false
-    part.Transparency   = 1
-    part.Parent         = Workspace
-    local hl               = Instance.new("Highlight")
-    hl.Adornee             = part
-    hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
-    hl.FillColor           = Color3.fromRGB(0, 255, 80)
-    hl.FillTransparency    = 0.5
-    hl.OutlineColor        = Color3.fromRGB(0, 255, 80)
-    hl.OutlineTransparency = 0
-    hl.Parent              = part
-    sheriffGunPart = part
+local function scanGunDrops()
+    local playerNames = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        playerNames[p.Name] = true
+    end
+
+    for part, hl in pairs(gunDropHighlights) do
+        if not part.Parent then
+            if hl and hl.Parent then hl:Destroy() end
+            gunDropHighlights[part] = nil
+        end
+    end
+
+    for _, child in ipairs(Workspace:GetChildren()) do
+        if playerNames[child.Name] then continue end
+        if child.Name == "GunDrop" then
+            attachGunDropHighlight(child)
+        end
+        local ok, err = pcall(function()
+            for _, desc in ipairs(child:GetDescendants()) do
+                if desc.Name == "GunDrop" then
+                    attachGunDropHighlight(desc)
+                end
+            end
+        end)
+        if not ok then warn("[SilentAim] GunDrop scan: " .. tostring(err)) end
+    end
+end
+
+-- ── Walk speed ────────────────────────────────────────────────────────────────
+local function setWalkSpeed(char)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.WalkSpeed = 18
+    else
+        char.ChildAdded:Connect(function(child)
+            if child:IsA("Humanoid") then child.WalkSpeed = 18 end
+        end)
+    end
 end
 
 -- ── LP murderer ESP ───────────────────────────────────────────────────────────
 local function removeLpVisual(p)
-    local hl = lpVisuals[p]
-    if hl and hl.Parent then hl:Destroy() end
+    local lv = lpVisuals[p]
+    if lv and lv.hl and lv.hl.Parent then lv.hl:Destroy() end
     lpVisuals[p] = nil
 end
 
@@ -83,20 +116,23 @@ local function clearAllLpVisuals()
     for p in pairs(lpVisuals) do removeLpVisual(p) end
 end
 
-local function attachLpVisual(p, char)
+local function attachLpVisual(p, char, color)
     removeLpVisual(p)
-    local hl               = Instance.new("Highlight")
-    hl.Name                = "LpEspHighlight"
-    hl.Adornee             = char
-    hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
-    hl.FillTransparency    = 1
-    hl.OutlineColor        = Color3.fromRGB(255, 200, 0)
-    hl.OutlineTransparency = 0
-    hl.Parent              = char
-    lpVisuals[p]           = hl
+    local ok, err = pcall(function()
+        local hl               = Instance.new("Highlight")
+        hl.Name                = "LpEspHighlight"
+        hl.Adornee             = char
+        hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.FillTransparency    = 1
+        hl.OutlineColor        = color
+        hl.OutlineTransparency = 0
+        hl.Parent              = char
+        lpVisuals[p]           = { hl = hl, color = color }
+    end)
+    if not ok then warn("[SilentAim] LpVisual: " .. tostring(err)) end
 end
 
--- ── Role visuals (adorn full character Model) ─────────────────────────────────
+-- ── Role visuals ──────────────────────────────────────────────────────────────
 local function removeVisuals(p)
     local v = visuals[p]
     if not v then return end
@@ -106,18 +142,21 @@ end
 
 local function attachVisuals(p, char, role)
     removeVisuals(p)
-    local hl               = Instance.new("Highlight")
-    hl.Name                = "RoleHighlight"
-    hl.Adornee             = char
-    hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
-    hl.FillTransparency    = 1
-    hl.OutlineColor        = ROLE_COLOR[role]
-    hl.OutlineTransparency = 0.7
-    hl.Parent              = char
-    visuals[p]             = { highlight = hl }
+    local ok, err = pcall(function()
+        local hl               = Instance.new("Highlight")
+        hl.Name                = "RoleHighlight"
+        hl.Adornee             = char
+        hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.FillTransparency    = 1
+        hl.OutlineColor        = ROLE_COLOR[role]
+        hl.OutlineTransparency = 0.7
+        hl.Parent              = char
+        visuals[p]             = { highlight = hl }
+    end)
+    if not ok then warn("[SilentAim] RoleVisual: " .. tostring(err)) end
 end
 
--- ── Role detection: Character + Backpack ─────────────────────────────────────
+-- ── Role detection ────────────────────────────────────────────────────────────
 local function getRole(p)
     local char = p.Character
     local bp   = p:FindFirstChild("Backpack")
@@ -137,10 +176,6 @@ end
 local function watchChar(p, char)
     char.AncestryChanged:Connect(function(_, parent)
         if parent ~= nil then return end
-        if stickyRoles[p] == "sheriff" then
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if hrp then placeSheriffGun(hrp.Position) end
-        end
         roles[p]       = nil
         stickyRoles[p] = nil
         removeLpVisual(p)
@@ -169,7 +204,11 @@ Players.PlayerRemoving:Connect(function(p)
     if murderer == p then murderer = nil lbl.Text = "" end
 end)
 
-lp.CharacterAdded:Connect(clearAllLpVisuals)
+lp.CharacterAdded:Connect(function(char)
+    clearAllLpVisuals()
+    setWalkSpeed(char)
+end)
+if lp.Character then setWalkSpeed(lp.Character) end
 
 -- ── Aim ───────────────────────────────────────────────────────────────────────
 local function getAimPosition()
@@ -184,21 +223,17 @@ local function getAimPosition()
 
     local target = torso or hrp
 
-    -- Wall check: if torso is blocked, fall back to head
     local myChar = lp.Character
     local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if myHRP and head then
         rayParams.FilterDescendantsInstances = { myChar, char }
         local dir    = target.Position - myHRP.Position
         local result = Workspace:Raycast(myHRP.Position, dir, rayParams)
-        if result then
-            target = head
-        end
+        if result then target = head end
     end
 
-    -- Movement: speed > 3 studs/s → lead by 2 studs; otherwise shoot directly
-    local vel    = hrp.AssemblyLinearVelocity
-    local hVel   = Vector3.new(vel.X, 0, vel.Z)
+    local vel  = hrp.AssemblyLinearVelocity
+    local hVel = Vector3.new(vel.X, 0, vel.Z)
     if hVel.Magnitude > 2 then
         return target.Position + hVel.Unit * WALK_LEAD
     end
@@ -251,8 +286,20 @@ RunService.Heartbeat:Connect(function(dt)
             if role == "murder" and char then newMurderer = p end
 
             if isLpMurd and char then
-                if not lpVisuals[p] or not lpVisuals[p].Parent then
-                    attachLpVisual(p, char)
+                local lpColor
+                if role == "sheriff" then
+                    lpColor = LP_COLOR.sheriff
+                elseif role ~= "murder" then
+                    lpColor = LP_COLOR.norole
+                end
+
+                if lpColor then
+                    local lv = lpVisuals[p]
+                    if not lv or not lv.hl or not lv.hl.Parent or lv.color ~= lpColor then
+                        attachLpVisual(p, char, lpColor)
+                    end
+                else
+                    removeLpVisual(p)
                 end
             elseif lpVisuals[p] then
                 removeLpVisual(p)
@@ -262,18 +309,7 @@ RunService.Heartbeat:Connect(function(dt)
         murderer = newMurderer
         lbl.Text = murderer and ("⚠ " .. murderer.Name) or ""
 
-        if sheriffGunPos and sheriffGunPart and sheriffGunPart.Parent then
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p == murderer then continue end
-                local char = p.Character
-                if not char then continue end
-                local hrp = char:FindFirstChild("HumanoidRootPart")
-                if hrp and (hrp.Position - sheriffGunPos).Magnitude <= 2 then
-                    clearSheriffGun()
-                    break
-                end
-            end
-        end
+        scanGunDrops()
     end)
     if not ok then warn("[SilentAim] Scan: " .. tostring(err)) end
 end)
