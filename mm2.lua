@@ -15,22 +15,6 @@ local UIS        = game:GetService("UserInputService")
 
 local lp = Players.LocalPlayer
 
--- ── HUD ───────────────────────────────────────────────────────────────────────
-local gui = Instance.new("ScreenGui")
-gui.Name         = "MurderHUD"
-gui.ResetOnSpawn = false
-gui.Parent       = lp.PlayerGui
-
-local lbl = Instance.new("TextLabel", gui)
-lbl.Size                   = UDim2.new(0, 200, 0, 14)
-lbl.Position               = UDim2.new(1, -205, 1, -18)
-lbl.BackgroundTransparency = 1
-lbl.TextColor3             = Color3.fromRGB(255, 55, 55)
-lbl.TextSize               = 9
-lbl.Font                   = Enum.Font.Code
-lbl.TextXAlignment         = Enum.TextXAlignment.Right
-lbl.Text                   = ""
-
 -- ── State ─────────────────────────────────────────────────────────────────────
 local roles             = {}
 local stickyRoles       = {}
@@ -53,7 +37,7 @@ local rayParams      = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
 local HIDE_POS      = Vector3.new(0, -9999, 0)
-local REAL_HRP_SIZE = Vector3.new(20, 6, 20)
+local REAL_HRP_SIZE = Vector3.new(20, 5, 20)
 local FAKE_HRP_SIZE = Vector3.new(2, 2, 1)
 
 local fakeHRPs  = {}
@@ -221,16 +205,6 @@ local function getRole(p)
     return stickyRoles[p]
 end
 
--- ── Murderer rescan ───────────────────────────────────────────────────────────
-local function rescanMurderer()
-    local found = nil
-    for _, p in ipairs(Players:GetPlayers()) do
-        if roles[p] == "murder" then found = p break end
-    end
-    murderer = found
-    lbl.Text = murderer and ("⚠ " .. murderer.Name) or ""
-end
-
 -- ── LP visual for one player ──────────────────────────────────────────────────
 local function updateLpVisualFor(p)
     if not isLpMurd then removeLpVisual(p) return end
@@ -268,7 +242,6 @@ local function applyRole(p)
         removeVisuals(p)
     end
     if old ~= role then
-        rescanMurderer()
         updateLpVisualFor(p)
     end
 end
