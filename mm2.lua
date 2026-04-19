@@ -5,8 +5,8 @@ _G.__MurderHUD_Running = true
 
 local WALK_LEAD        = 4.5
 local KNIFE_LEAD       = 1
-local KNIFE_STAB_DIST  = 4.5
-local KNIFE_THROW_DIST = 5.5
+local KNIFE_STAB_DIST  = 5
+local KNIFE_THROW_DIST = 6
 
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -53,7 +53,7 @@ local rayParams      = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
 local HIDE_POS      = Vector3.new(0, -9999, 0)
-local REAL_HRP_SIZE = Vector3.new(10, 4, 10)
+local REAL_HRP_SIZE = Vector3.new(20, 6, 20)
 local FAKE_HRP_SIZE = Vector3.new(2, 2, 1)
 
 local fakeHRPs  = {}
