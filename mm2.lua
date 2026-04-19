@@ -37,7 +37,7 @@ local rayParams      = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
 local HIDE_POS      = Vector3.new(0, -9999, 0)
-local REAL_HRP_SIZE = Vector3.new(20, 5, 20)
+local REAL_HRP_SIZE = Vector3.new(17, 5, 17)
 local FAKE_HRP_SIZE = Vector3.new(2, 2, 1)
 
 local fakeHRPs  = {}
