@@ -3,9 +3,8 @@
 if _G.__MurderHUD_Running then return end
 _G.__MurderHUD_Running = true
 
-local WALK_LEAD  = 4.5
-local KNIFE_LEAD = 1
-local SCAN_RATE  = 0.3
+local WALK_LEAD        = 4.5
+local KNIFE_LEAD       = 1
 local KNIFE_STAB_DIST  = 4.5
 local KNIFE_THROW_DIST = 5.5
 
@@ -16,7 +15,7 @@ local UIS        = game:GetService("UserInputService")
 
 local lp = Players.LocalPlayer
 
--- ── HUD label ────────────────────────────────────────────────────────────────
+-- ── HUD ───────────────────────────────────────────────────────────────────────
 local gui = Instance.new("ScreenGui")
 gui.Name         = "MurderHUD"
 gui.ResetOnSpawn = false
@@ -32,27 +31,33 @@ lbl.Font                   = Enum.Font.Code
 lbl.TextXAlignment         = Enum.TextXAlignment.Right
 lbl.Text                   = ""
 
--- ── State ────────────────────────────────────────────────────────────────────
+-- ── State ─────────────────────────────────────────────────────────────────────
 local roles             = {}
 local stickyRoles       = {}
 local visuals           = {}
 local lpVisuals         = {}
 local murderer          = nil
+local isLpMurd          = false
 local gunDropHighlights = {}
 
 local ROLE_COLOR = {
-    murder  = Color3.fromRGB(255, 0,   0),
-    sheriff = Color3.fromRGB(0,   100, 255),
+    murder  = Color3.fromRGB(255,   0,   0),
+    sheriff = Color3.fromRGB(  0, 100, 255),
 }
 local LP_COLOR = {
-    norole  = Color3.fromRGB(0, 255, 80),
+    norole  = Color3.fromRGB(0, 255,  80),
     sheriff = Color3.fromRGB(0, 100, 255),
 }
 
 local rayParams      = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
-local HIDE_POS = Vector3.new(0, -9999, 0)
+local HIDE_POS      = Vector3.new(0, -9999, 0)
+local REAL_HRP_SIZE = Vector3.new(10, 4, 10)
+local FAKE_HRP_SIZE = Vector3.new(2, 2, 1)
+
+local fakeHRPs  = {}
+local charParts = {}
 
 -- ── Gun drop ESP ──────────────────────────────────────────────────────────────
 local function attachGunDropHighlight(part)
@@ -72,41 +77,23 @@ local function attachGunDropHighlight(part)
         frame.BackgroundColor3     = color
         frame.Size                 = UDim2.new(1, 0, 1, 0)
         local txt = Instance.new("TextLabel", bb)
-        txt.ZIndex                  = 10
-        txt.Text                    = "Gun"
-        txt.BackgroundTransparency  = 1
-        txt.Position                = UDim2.new(0, 0, 0, -35)
-        txt.Size                    = UDim2.new(1, 0, 10, 0)
-        txt.Font                    = Enum.Font.ArialBold
-        txt.TextSize                = 12
-        txt.TextStrokeTransparency  = 0.5
-        txt.TextColor3              = color
-        gunDropHighlights[part] = bb
-    end)
-    if not ok then warn("[MurderHUD] GunDrop highlight: " .. tostring(err)) end
-end
-
-local function scanGunDrops()
-    local playerNames = {}
-    for _, p in ipairs(Players:GetPlayers()) do playerNames[p.Name] = true end
-
-    for part, bb in pairs(gunDropHighlights) do
-        if not part.Parent then
+        txt.ZIndex                 = 10
+        txt.Text                   = "Gun"
+        txt.BackgroundTransparency = 1
+        txt.Position               = UDim2.new(0, 0, 0, -35)
+        txt.Size                   = UDim2.new(1, 0, 10, 0)
+        txt.Font                   = Enum.Font.ArialBold
+        txt.TextSize               = 12
+        txt.TextStrokeTransparency = 0.5
+        txt.TextColor3             = color
+        gunDropHighlights[part]    = bb
+        part.AncestryChanged:Connect(function(_, parent)
+            if parent then return end
             if bb and bb.Parent then bb:Destroy() end
             gunDropHighlights[part] = nil
-        end
-    end
-
-    for _, child in ipairs(Workspace:GetChildren()) do
-        if playerNames[child.Name] then continue end
-        if child.Name == "GunDrop" then attachGunDropHighlight(child) end
-        local ok, err = pcall(function()
-            for _, desc in ipairs(child:GetDescendants()) do
-                if desc.Name == "GunDrop" then attachGunDropHighlight(desc) end
-            end
         end)
-        if not ok then warn("[MurderHUD] GunDrop scan: " .. tostring(err)) end
-    end
+    end)
+    if not ok then warn("[MurderHUD] GunDrop highlight: " .. tostring(err)) end
 end
 
 -- ── Walk / Jump ───────────────────────────────────────────────────────────────
@@ -149,13 +136,13 @@ local function attachLpVisual(p, char, color)
     if not head then return end
     local ok, err = pcall(function()
         local bb = Instance.new("BillboardGui")
-        bb.Name        = "LpEspTracker"
-        bb.Adornee     = head
-        bb.AlwaysOnTop = true
+        bb.Name          = "LpEspTracker"
+        bb.Adornee       = head
+        bb.AlwaysOnTop   = true
         bb.ExtentsOffset = Vector3.new(0, 1, 0)
-        bb.Size        = UDim2.new(0, 5, 0, 5)
-        bb.StudsOffset = Vector3.new(0, 1, 0)
-        bb.Parent      = lp.PlayerGui
+        bb.Size          = UDim2.new(0, 5, 0, 5)
+        bb.StudsOffset   = Vector3.new(0, 1, 0)
+        bb.Parent        = lp.PlayerGui
         local frame = Instance.new("Frame", bb)
         frame.ZIndex               = 10
         frame.BackgroundTransparency = 0.3
@@ -191,13 +178,13 @@ local function attachVisuals(p, char, role)
     local ok, err = pcall(function()
         local color = ROLE_COLOR[role]
         local bb = Instance.new("BillboardGui")
-        bb.Name        = "tracker"
-        bb.Adornee     = head
-        bb.AlwaysOnTop = true
+        bb.Name          = "tracker"
+        bb.Adornee       = head
+        bb.AlwaysOnTop   = true
         bb.ExtentsOffset = Vector3.new(0, 1, 0)
-        bb.Size        = UDim2.new(0, 5, 0, 5)
-        bb.StudsOffset = Vector3.new(0, 1, 0)
-        bb.Parent      = lp.PlayerGui
+        bb.Size          = UDim2.new(0, 5, 0, 5)
+        bb.StudsOffset   = Vector3.new(0, 1, 0)
+        bb.Parent        = lp.PlayerGui
         local frame = Instance.new("Frame", bb)
         frame.ZIndex               = 10
         frame.BackgroundTransparency = 0.3
@@ -234,7 +221,95 @@ local function getRole(p)
     return stickyRoles[p]
 end
 
--- ── Watch character ───────────────────────────────────────────────────────────
+-- ── Murderer rescan ───────────────────────────────────────────────────────────
+local function rescanMurderer()
+    local found = nil
+    for _, p in ipairs(Players:GetPlayers()) do
+        if roles[p] == "murder" then found = p break end
+    end
+    murderer = found
+    lbl.Text = murderer and ("⚠ " .. murderer.Name) or ""
+end
+
+-- ── LP visual for one player ──────────────────────────────────────────────────
+local function updateLpVisualFor(p)
+    if not isLpMurd then removeLpVisual(p) return end
+    local pChar = p.Character
+    if not pChar then removeLpVisual(p) return end
+    local role = roles[p]
+    local lpColor
+    if role == "sheriff" then
+        lpColor = LP_COLOR.sheriff
+    elseif role ~= "murder" then
+        lpColor = LP_COLOR.norole
+    end
+    if lpColor then
+        local lv = lpVisuals[p]
+        if not lv or lv.color ~= lpColor then
+            attachLpVisual(p, pChar, lpColor)
+        end
+    else
+        removeLpVisual(p)
+    end
+end
+
+-- ── Apply role state for a player ─────────────────────────────────────────────
+local function applyRole(p)
+    local role  = getRole(p)
+    local pChar = p.Character
+    local old   = roles[p]
+    roles[p] = role
+    if role and pChar then
+        local v = visuals[p]
+        if not v or not v.bb or not v.bb.Parent or old ~= role then
+            attachVisuals(p, pChar, role)
+        end
+    else
+        removeVisuals(p)
+    end
+    if old ~= role then
+        rescanMurderer()
+        updateLpVisualFor(p)
+    end
+end
+
+-- ── LP murderer state ─────────────────────────────────────────────────────────
+local function refreshLpMurd()
+    local char = lp.Character
+    local bp   = lp:FindFirstChild("Backpack")
+    local prev = isLpMurd
+    isLpMurd = (char and char:FindFirstChild("Knife") ~= nil)
+            or (bp   and bp:FindFirstChild("Knife")   ~= nil)
+    if prev == isLpMurd then return end
+    if not isLpMurd then
+        clearAllLpVisuals()
+    else
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= lp then updateLpVisualFor(p) end
+        end
+    end
+end
+
+-- ── Watch container for tool events ──────────────────────────────────────────
+local function watchContainer(p, container, forLp)
+    if forLp then
+        container.ChildAdded:Connect(function(child)
+            if child.Name == "Knife" then refreshLpMurd() end
+        end)
+        container.ChildRemoved:Connect(function(child)
+            if child.Name == "Knife" then refreshLpMurd() end
+        end)
+    else
+        container.ChildAdded:Connect(function(child)
+            if child.Name == "Knife" or child.Name == "Gun" then applyRole(p) end
+        end)
+        container.ChildRemoved:Connect(function(child)
+            if child.Name == "Knife" or child.Name == "Gun" then applyRole(p) end
+        end)
+    end
+end
+
+-- ── Watch character for removal ───────────────────────────────────────────────
 local function watchChar(p, char)
     char.AncestryChanged:Connect(function(_, parent)
         if parent ~= nil then return end
@@ -246,41 +321,7 @@ local function watchChar(p, char)
     end)
 end
 
-local function watchPlayer(p)
-    if p == lp then return end
-    if p.Character then watchChar(p, p.Character) end
-    p.CharacterAdded:Connect(function(char)
-        stickyRoles[p] = nil
-        removeLpVisual(p)
-        watchChar(p, char)
-    end)
-end
-
-for _, p in ipairs(Players:GetPlayers()) do watchPlayer(p) end
-Players.PlayerAdded:Connect(watchPlayer)
-Players.PlayerRemoving:Connect(function(p)
-    roles[p]       = nil
-    stickyRoles[p] = nil
-    removeLpVisual(p)
-    removeVisuals(p)
-    if murderer == p then murderer = nil lbl.Text = "" end
-end)
-
-lp.CharacterAdded:Connect(function(char)
-    clearAllLpVisuals()
-    setWalkSpeed(char)
-    setJumpPower(char)
-end)
-if lp.Character then setWalkSpeed(lp.Character) end
-if lp.Character then setJumpPower(lp.Character) end
-
--- ── Fake HRP + Expand + Noclip ───────────────────────────────────────────────
-local fakeHRPs  = {}
-local charParts = {}
-
-local REAL_HRP_SIZE = Vector3.new(10, 4, 10)
-local FAKE_HRP_SIZE = Vector3.new(2, 2, 1)
-
+-- ── FakeHRP helpers ───────────────────────────────────────────────────────────
 local function rebuildCharParts(p)
     local char = p.Character
     if not char then charParts[p] = nil return end
@@ -326,21 +367,71 @@ local function ensureFakeHRP(p)
     if not ok then warn("[MurderHUD] FakeHRP create: " .. tostring(err)) end
 end
 
+-- ── Per-player setup ──────────────────────────────────────────────────────────
 local function setupPlayer(p)
     ensureFakeHRP(p)
-    if p.Character then
-        expandRealHRP(p)
-        rebuildCharParts(p)
+    -- Watch persistent Backpack once
+    local bp = p:FindFirstChild("Backpack")
+    if bp then
+        watchContainer(p, bp, false)
+    else
+        p.ChildAdded:Connect(function(child)
+            if child.Name == "Backpack" then watchContainer(p, child, false) end
+        end)
     end
-    p.CharacterAdded:Connect(function()
+    -- Watch current character
+    if p.Character then
+        watchChar(p, p.Character)
+        watchContainer(p, p.Character, false)
         expandRealHRP(p)
         rebuildCharParts(p)
+        applyRole(p)
+    end
+    -- Watch future characters (new char = new round, clear sticky)
+    p.CharacterAdded:Connect(function(char)
+        stickyRoles[p] = nil
+        removeLpVisual(p)
+        removeVisuals(p)
+        watchChar(p, char)
+        watchContainer(p, char, false)
+        expandRealHRP(p)
+        rebuildCharParts(p)
+        applyRole(p)
     end)
 end
 
+-- ── LP setup ──────────────────────────────────────────────────────────────────
+local function setupLp()
+    local char = lp.Character
+    if char then
+        setWalkSpeed(char)
+        setJumpPower(char)
+        watchContainer(lp, char, true)
+    end
+    local bp = lp:FindFirstChild("Backpack")
+    if bp then
+        watchContainer(lp, bp, true)
+    else
+        lp.ChildAdded:Connect(function(child)
+            if child.Name == "Backpack" then watchContainer(lp, child, true) end
+        end)
+    end
+    refreshLpMurd()
+end
+
+lp.CharacterAdded:Connect(function(char)
+    clearAllLpVisuals()
+    isLpMurd = false
+    setWalkSpeed(char)
+    setJumpPower(char)
+    watchContainer(lp, char, true)
+    refreshLpMurd()
+end)
+
+setupLp()
+
 for _, p in ipairs(Players:GetPlayers()) do
-    if p == lp then continue end
-    setupPlayer(p)
+    if p ~= lp then setupPlayer(p) end
 end
 
 Players.PlayerAdded:Connect(function(p)
@@ -349,12 +440,33 @@ Players.PlayerAdded:Connect(function(p)
 end)
 
 Players.PlayerRemoving:Connect(function(p)
+    roles[p]       = nil
+    stickyRoles[p] = nil
+    removeLpVisual(p)
+    removeVisuals(p)
+    if murderer == p then murderer = nil lbl.Text = "" end
     local fake = fakeHRPs[p]
     if fake and fake.Parent then fake:Destroy() end
     fakeHRPs[p]  = nil
     charParts[p] = nil
 end)
 
+-- ── GunDrop: event-driven ─────────────────────────────────────────────────────
+Workspace.DescendantAdded:Connect(function(desc)
+    if desc.Name ~= "GunDrop" then return end
+    local ok, err = pcall(attachGunDropHighlight, desc)
+    if not ok then warn("[MurderHUD] GunDrop DescendantAdded: " .. tostring(err)) end
+end)
+
+-- Catch any drops already in workspace at startup
+for _, desc in ipairs(Workspace:GetDescendants()) do
+    if desc.Name == "GunDrop" then
+        local ok, err = pcall(attachGunDropHighlight, desc)
+        if not ok then warn("[MurderHUD] GunDrop startup: " .. tostring(err)) end
+    end
+end
+
+-- ── FakeHRP sync: Heartbeat (positional, must remain per-frame) ───────────────
 RunService.Heartbeat:Connect(function()
     for p, fakePart in pairs(fakeHRPs) do
         local char = p.Character
@@ -380,24 +492,21 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ── Gun aim position (targets murderer) ──────────────────────────────────────
+-- ── Aim: gun (targets murderer) ───────────────────────────────────────────────
 local function getAimPosition()
     if not murderer then return nil end
     local char = murderer.Character
     if not char then return nil end
-
     local hrp   = char:FindFirstChild("HumanoidRootPart")
     local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
     local head  = char:FindFirstChild("Head")
     local hum   = char:FindFirstChildOfClass("Humanoid")
     if not hrp then return nil end
-
     local isAir      = hum and hum.FloorMaterial == Enum.Material.Air
     local isClimbing = hum and hum:GetState() == Enum.HumanoidStateType.Climbing
     if isAir and not isClimbing then
         return hrp.Position - Vector3.new(0, 2, 0)
     end
-
     local target = torso or hrp
     local myChar = lp.Character
     local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -407,22 +516,19 @@ local function getAimPosition()
         local result = Workspace:Raycast(myHRP.Position, dir, rayParams)
         if result then target = head end
     end
-
     local vel  = hrp.AssemblyLinearVelocity
     local hVel = Vector3.new(vel.X, 0, vel.Z)
     if hVel.Magnitude >= 15.8 then
         return target.Position + hVel.Unit * WALK_LEAD
     end
-
     return target.Position
 end
 
--- ── Knife: nearest living player + distance ───────────────────────────────────
+-- ── Aim: knife (nearest living player) ───────────────────────────────────────
 local function getNearestPlayerAndDist()
     local myChar = lp.Character
     local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myHRP then return nil, math.huge end
-
     local nearest, nearestDist = nil, math.huge
     for _, p in ipairs(Players:GetPlayers()) do
         if p == lp then continue end
@@ -433,38 +539,30 @@ local function getNearestPlayerAndDist()
         if not hrp or not hum then continue end
         if hum.Health <= 0 then continue end
         local dist = (hrp.Position - myHRP.Position).Magnitude
-        if dist < nearestDist then
-            nearestDist = dist
-            nearest     = p
-        end
+        if dist < nearestDist then nearestDist = dist nearest = p end
     end
     return nearest, nearestDist
 end
 
--- ── Knife aim position for a given player ────────────────────────────────────
 local function getKnifeAimPosition(p)
     if not p then return nil end
     local char = p.Character
     if not char then return nil end
-
     local hrp   = char:FindFirstChild("HumanoidRootPart")
     local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
     local hum   = char:FindFirstChildOfClass("Humanoid")
     if not hrp then return nil end
-
     local isAir      = hum and hum.FloorMaterial == Enum.Material.Air
     local isClimbing = hum and hum:GetState() == Enum.HumanoidStateType.Climbing
     if isAir and not isClimbing then
         return hrp.Position - Vector3.new(0, 2, 0)
     end
-
     local target = torso or hrp
     local vel    = hrp.AssemblyLinearVelocity
     local hVel   = Vector3.new(vel.X, 0, vel.Z)
     if hVel.Magnitude >= 15.8 then
         return target.Position + hVel.Unit * KNIFE_LEAD
     end
-
     return target.Position
 end
 
@@ -489,96 +587,23 @@ local function getKnifeRemote()
     return (r and r:IsA("RemoteEvent")) and r or nil
 end
 
--- ── Scan loop ─────────────────────────────────────────────────────────────────
-local scanAccum   = 0
-local sphereAccum = 0
-RunService.Heartbeat:Connect(function(dt)
-    scanAccum += dt
-    if scanAccum < SCAN_RATE then return end
-    scanAccum = 0
-
-    local ok, err = pcall(function()
-        local char     = lp.Character
-        local bp       = lp:FindFirstChild("Backpack")
-        local isLpMurd = (char and char:FindFirstChild("Knife") ~= nil)
-                      or (bp   and bp:FindFirstChild("Knife")   ~= nil)
-        local newMurderer = nil
-
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p == lp then continue end
-
-            local role    = getRole(p)
-            local oldRole = roles[p]
-            local pChar   = p.Character
-
-            if role ~= oldRole then
-                roles[p] = role
-                if role and pChar then
-                    attachVisuals(p, pChar, role)
-                else
-                    removeVisuals(p)
-                end
-            elseif role and pChar then
-                local v = visuals[p]
-                if not v or not v.highlight or not v.highlight.Parent then
-                    attachVisuals(p, pChar, role)
-                end
-            end
-
-            if role == "murder" and pChar then newMurderer = p end
-
-            if isLpMurd and pChar then
-                local lpColor
-                if role == "sheriff" then
-                    lpColor = LP_COLOR.sheriff
-                elseif role ~= "murder" then
-                    lpColor = LP_COLOR.norole
-                end
-                if lpColor then
-                    local lv = lpVisuals[p]
-                    if not lv or not lv.hl or not lv.hl.Parent or lv.color ~= lpColor then
-                        attachLpVisual(p, pChar, lpColor)
-                    end
-                else
-                    removeLpVisual(p)
-                end
-            end
-        end
-
-        murderer = newMurderer
-        lbl.Text = murderer and ("⚠ " .. murderer.Name) or ""
-
-        scanGunDrops()
-    end)
-    if not ok then warn("[MurderHUD] Scan: " .. tostring(err)) end
-end)
-
--- ── Click / Touch intercept ───────────────────────────────────────────────────
+-- ── Input ─────────────────────────────────────────────────────────────────────
 UIS.InputBegan:Connect(function(input, processed)
     if processed then return end
     local isFire = input.UserInputType == Enum.UserInputType.MouseButton1
                or  input.UserInputType == Enum.UserInputType.Touch
     if not isFire then return end
-
     local myChar = lp.Character
     local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myHRP then return end
-
-    -- LP is murderer: knife silent aim
     local knifeRemote = getKnifeRemote()
     if knifeRemote then
         local target, dist = getNearestPlayerAndDist()
-
-        -- nearest player is within stab range: do not throw
-        if dist <= KNIFE_STAB_DIST then return end
-
-        -- nearest player is not far enough to warrant a throw
+        if dist <= KNIFE_STAB_DIST  then return end
         if dist <= KNIFE_THROW_DIST then return end
-
         if not target then warn("[MurderHUD] Knife: no valid target.") return end
         local aimPos = getKnifeAimPosition(target)
         if not aimPos then warn("[MurderHUD] Knife: no aim position.") return end
-
         local ok, err = pcall(function()
             knifeRemote:FireServer(
                 CFrame.new(myHRP.Position, aimPos),
@@ -588,13 +613,10 @@ UIS.InputBegan:Connect(function(input, processed)
         if not ok then warn("[MurderHUD] Knife FireServer: " .. tostring(err)) end
         return
     end
-
-    -- LP has gun (sheriff): gun silent aim at murderer
     if not murderer then return end
     local aimPos = getAimPosition()
     if not aimPos then return end
     local remote = getShootRemote()
-
     local ok, err = pcall(function()
         remote:FireServer(CFrame.new(myHRP.Position, aimPos), CFrame.new(aimPos))
     end)
