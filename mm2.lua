@@ -367,9 +367,13 @@ local function setupPlayer(p)
         removeVisuals(p)
         watchChar(p, char)
         watchContainer(p, char, false)
+        local bp2 = p:FindFirstChild("Backpack")
+        if bp2 then watchContainer(p, bp2, false) end
         expandRealHRP(p)
         rebuildCharParts(p)
         applyRole(p)
+        task.delay(1, function() if p.Character == char then applyRole(p) end end)
+        task.delay(3, function() if p.Character == char then applyRole(p) end end)
     end)
 end
 
@@ -512,7 +516,13 @@ local function getNearestPlayerAndDist()
         if not hrp or not hum then continue end
         if hum.Health <= 0 then continue end
         local dist = (hrp.Position - myHRP.Position).Magnitude
-        if dist < nearestDist then nearestDist = dist nearest = p end
+        if dist >= nearestDist then continue end
+        rayParams.FilterDescendantsInstances = { myChar, char }
+        local dir    = hrp.Position - myHRP.Position
+        local result = Workspace:Raycast(myHRP.Position, dir, rayParams)
+        if result then continue end
+        nearestDist = dist
+        nearest     = p
     end
     return nearest, nearestDist
 end
