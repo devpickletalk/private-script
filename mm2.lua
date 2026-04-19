@@ -4,10 +4,10 @@ if _G.__MurderHUD_Running then return end
 _G.__MurderHUD_Running = true
 
 local WALK_LEAD  = 4.5
-local KNIFE_LEAD = 2.5
+local KNIFE_LEAD = 1.5
 local SCAN_RATE  = 0.2
-local KNIFE_STAB_DIST  = 3
-local KNIFE_THROW_DIST = 4
+local KNIFE_STAB_DIST  = 3.5
+local KNIFE_THROW_DIST = 4.5
 
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
