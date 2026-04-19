@@ -238,7 +238,7 @@ local function applyRole(p)
     elseif old == "murder" and murderer == p then
         murderer = nil
     end
-    if role and pChar thena
+    if role and pChar then
         local v = visuals[p]
         if not v or not v.bb or not v.bb.Parent or old ~= role then
             attachVisuals(p, pChar, role)
@@ -295,7 +295,7 @@ local function watchChar(p, char)
         stickyRoles[p] = nil
         removeLpVisual(p)
         removeVisuals(p)
-        if murderer == p then murderer = nil lbl.Text = "" end
+        if murderer == p then murderer = nil end
     end)
 end
 
