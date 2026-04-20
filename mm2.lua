@@ -387,6 +387,13 @@ end
 
 -- ── Watch character for removal ───────────────────────────────────────────────
 local function watchChar(p, char)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.Died:Connect(function()
+            removeLpVisual(p)
+            removeVisuals(p)
+        end)
+    end
     char.AncestryChanged:Connect(function(_, parent)
         if parent ~= nil then return end
         roles[p]       = nil
@@ -465,6 +472,7 @@ local function setupPlayer(p)
         expandRealHRP(p)
         rebuildCharParts(p)
         applyRole(p)
+        updateLpVisualFor(p)
     end
     -- Watch future characters (new char = new round, clear sticky)
     p.CharacterAdded:Connect(function(char)
@@ -476,6 +484,7 @@ local function setupPlayer(p)
         expandRealHRP(p)
         rebuildCharParts(p)
         applyRole(p)
+        updateLpVisualFor(p)
         task.delay(1, function() if p.Character == char then applyRole(p) end end)
         task.delay(3, function() if p.Character == char then applyRole(p) end end)
     end)
