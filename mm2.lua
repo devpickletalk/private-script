@@ -3,12 +3,12 @@
 if _G.__MurderHUD_Running then return end
 _G.__MurderHUD_Running = true
 
-local WALK_LEAD        = 4.5
-
-local Players    = game:GetService("Players")
+local WALK_LEAD = 4.5
+local WALK_LEAD_SLOW = 1.5
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Workspace  = game:GetService("Workspace")
-local UIS        = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local UIS = game:GetService("UserInputService")
 
 local lp = Players.LocalPlayer
 
@@ -27,19 +27,19 @@ local roundActive       = false
 local roundTimerThread  = nil
 
 local ROLE_COLOR = {
-    murder  = Color3.fromRGB(255,   0,   0),
-    sheriff = Color3.fromRGB(  0, 100, 255),
-    hero    = Color3.fromRGB(255, 255,   0),
+    murder  = Color3.fromRGB(255, 0, 0),
+    sheriff = Color3.fromRGB(0, 100, 255),
+    hero    = Color3.fromRGB(255, 255, 0),
 }
 local LP_COLOR = {
-    norole  = Color3.fromRGB(0, 255,  80),
+    norole  = Color3.fromRGB(0, 255, 80),
     sheriff = Color3.fromRGB(0, 100, 255),
 }
 
 local rayParams      = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
-local HIDE_POS      = Vector3.new(0, -9999, 0)
+local HIDE_POS2 = Vector3.new(0, -9999, 0)
 local REAL_HRP_SIZE = Vector3.new(17, 5, 17)
 local FAKE_HRP_SIZE = Vector3.new(2, 2, 1)
 
@@ -642,6 +642,8 @@ local function getAimPosition()
     local hVel = Vector3.new(vel.X, 0, vel.Z)
     if hVel.Magnitude >= 15.8 then
         return target.Position + hVel.Unit * WALK_LEAD
+    elseif hVel.Magnitude > 0 then
+        return target.Position + hVel.Unit * WALK_LEAD_SLOW
     end
     return target.Position
 end
