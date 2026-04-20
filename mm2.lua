@@ -518,33 +518,42 @@ local function getNearestPlayerAndDist()
     local myChar = lp.Character
     local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myHRP then return nil, math.huge end
-    local myPos  = myHRP.Position
-    local nearest, nearestDist = nil, math.huge
-    local charFilter = {}
+    local myPos = myHRP.Position
+
+    local exclude = {}
     for _, op in ipairs(Players:GetPlayers()) do
-        if op.Character then charFilter[#charFilter + 1] = op.Character end
+        if op.Character then exclude[#exclude + 1] = op.Character end
     end
-    rayParams.FilterDescendantsInstances = charFilter
+    rayParams.FilterDescendantsInstances = exclude
+
+    local candidates = {}
     for _, p in ipairs(Players:GetPlayers()) do
         if p == lp then continue end
         local fake = fakeHRPs[p]
         if not fake or not fake.Parent then continue end
+        local fakePos = fake.Position
+        if fakePos.Y < -9000 then continue end  -- not yet synced
         local char = p.Character
         if not char then continue end
         local hum = char:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then continue end
-        local fakePos = fake.Position
-        local dist    = (fakePos - myPos).Magnitude
-        if dist >= nearestDist then continue end
-        local dir    = fakePos - myPos
-        local result = Workspace:Raycast(myPos, dir, rayParams)
-        if result then continue end
-        nearestDist = dist
-        nearest     = p
+        local dist = (fakePos - myPos).Magnitude
+        candidates[#candidates + 1] = { p = p, dist = dist, pos = fakePos }
     end
-    return nearest, nearestDist
-end
 
+    table.sort(candidates, function(a, b) return a.dist < b.dist end)
+
+    for _, c in ipairs(candidates) do
+        local dir    = c.pos - myPos
+        local result = Workspace:Raycast(myPos, dir, rayParams)
+        if not result then
+            return c.p, c.dist
+        end
+    end
+
+    return nil, math.huge
+end
+w
 local function getKnifeAimPosition(p)
     if not p then return nil end
     local char = p.Character
