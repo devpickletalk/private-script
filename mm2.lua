@@ -24,6 +24,10 @@ local murderer          = nil
 local isLpMurd          = false
 local gunDropHighlights = {}
 
+-- ── Autofarm state ────────────────────────────────────────────────────────────
+local autofarmActive = false
+local autofarmThread = nil
+
 local ROLE_COLOR = {
     murder  = Color3.fromRGB(255,   0,   0),
     sheriff = Color3.fromRGB(  0, 100, 255),
@@ -456,6 +460,90 @@ Players.PlayerRemoving:Connect(function(p)
     if fake and fake.Parent then fake:Destroy() end
     fakeHRPs[p]  = nil
     charParts[p] = nil
+end)
+
+-- ── Autofarm ──────────────────────────────────────────────────────────────────
+local function stopAutofarm()
+    autofarmActive = false
+    if autofarmThread then
+        task.cancel(autofarmThread)
+        autofarmThread = nil
+    end
+    local char = lp.Character
+    local hum  = char and char:FindFirstChildOfClass("Humanoid")
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    if hum  then hum.PlatformStand = false end
+    if hrp  then hrp.CFrame = hrp.CFrame end -- no-op; position already set by loop
+end
+
+local function startAutofarm()
+    if autofarmActive then return end
+    local char = lp.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    local hum  = char and char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then
+        warn("[MurderHUD] Autofarm: character not ready.")
+        return
+    end
+    local coinContainer = Workspace:FindFirstChild("Mansion2")
+        and Workspace.Mansion2:FindFirstChild("CoinContainer")
+    if not coinContainer then
+        warn("[MurderHUD] Autofarm: CoinContainer not found.")
+        return
+    end
+    local coins = {}
+    for _, part in ipairs(coinContainer:GetDescendants()) do
+        if part.Name == "Coin_Server" and part:IsA("BasePart") then
+            coins[#coins + 1] = part
+        end
+    end
+    if #coins == 0 then
+        warn("[MurderHUD] Autofarm: no Coin_Server parts found.")
+        return
+    end
+    autofarmActive = true
+    autofarmThread = task.spawn(function()
+        local ok, err = pcall(function()
+            hum.PlatformStand = true
+            local collected   = 0
+            local lastCF      = hrp.CFrame
+            for _, coin in ipairs(coins) do
+                if not autofarmActive then break end
+                if not coin or not coin.Parent then continue end
+                local c2  = lp.Character
+                local h2  = c2 and c2:FindFirstChild("HumanoidRootPart")
+                if not h2 then break end
+                local cp  = coin.Position
+                lastCF    = CFrame.new(cp.X, cp.Y, cp.Z)
+                h2.CFrame = CFrame.new(cp.X, cp.Y - 5, cp.Z)
+                collected = collected + 1
+                task.wait(1 / 40)
+                if collected >= 40 then break end
+            end
+            -- Restore
+            local c3  = lp.Character
+            local h3  = c3 and c3:FindFirstChild("HumanoidRootPart")
+            local hm3 = c3 and c3:FindFirstChildOfClass("Humanoid")
+            if h3  then h3.CFrame        = lastCF  end
+            if hm3 then hm3.PlatformStand = false   end
+        end)
+        if not ok then warn("[MurderHUD] Autofarm loop: " .. tostring(err)) end
+        autofarmActive = false
+        autofarmThread = nil
+        -- Safety restore on error path
+        local c4  = lp.Character
+        local hm4 = c4 and c4:FindFirstChildOfClass("Humanoid")
+        if hm4 then hm4.PlatformStand = false end
+    end)
+end
+
+lp.Chatted:Connect(function(msg)
+    if msg:lower() ~= ";autofarm" then return end
+    if autofarmActive then
+        stopAutofarm()
+    else
+        startAutofarm()
+    end
 end)
 
 -- ── GunDrop: event-driven ─────────────────────────────────────────────────────
