@@ -4,9 +4,6 @@ if _G.__MurderHUD_Running then return end
 _G.__MurderHUD_Running = true
 
 local WALK_LEAD        = 4.5
-local KNIFE_LEAD       = 1
-local KNIFE_STAB_DIST  = 6
-local KNIFE_THROW_DIST = 7
 
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -649,69 +646,6 @@ local function getAimPosition()
     return target.Position
 end
 
--- ── Aim: knife (nearest living player) ───────────────────────────────────────
-local function getNearestPlayerAndDist()
-    local myChar = lp.Character
-    local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not myHRP then return nil, math.huge end
-    local myPos = myHRP.Position
-
-    local exclude = {}
-    for _, op in ipairs(Players:GetPlayers()) do
-        if op.Character then exclude[#exclude + 1] = op.Character end
-    end
-    rayParams.FilterDescendantsInstances = exclude
-
-    local candidates = {}
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p == lp then continue end
-        local fake = fakeHRPs[p]
-        if not fake or not fake.Parent then continue end
-        local fakePos = fake.Position
-        if fakePos.Y < -9000 then continue end  -- not yet synced
-        local char = p.Character
-        if not char then continue end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then continue end
-        local dist = (fakePos - myPos).Magnitude
-        candidates[#candidates + 1] = { p = p, dist = dist, pos = fakePos }
-    end
-
-    table.sort(candidates, function(a, b) return a.dist < b.dist end)
-
-    for _, c in ipairs(candidates) do
-        local dir    = c.pos - myPos
-        local result = Workspace:Raycast(myPos, dir, rayParams)
-        if not result then
-            return c.p, c.dist
-        end
-    end
-
-    return nil, math.huge
-end
-
-local function getKnifeAimPosition(p)
-    if not p then return nil end
-    local char = p.Character
-    if not char then return nil end
-    local hrp   = char:FindFirstChild("HumanoidRootPart")
-    local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
-    local hum   = char:FindFirstChildOfClass("Humanoid")
-    if not hrp then return nil end
-    local isAir      = hum and hum.FloorMaterial == Enum.Material.Air
-    local isClimbing = hum and hum:GetState() == Enum.HumanoidStateType.Climbing
-    if isAir and not isClimbing then
-        return hrp.Position - Vector3.new(0, 2, 0)
-    end
-    local target = torso or hrp
-    local vel    = hrp.AssemblyLinearVelocity
-    local hVel   = Vector3.new(vel.X, 0, vel.Z)
-    if hVel.Magnitude >= 15.8 then
-        return target.Position + hVel.Unit * KNIFE_LEAD
-    end
-    return target.Position
-end
-
 -- ── Remote getters ────────────────────────────────────────────────────────────
 local function getShootRemote()
     local char = lp.Character
@@ -719,17 +653,6 @@ local function getShootRemote()
     local gun = char:FindFirstChild("Gun")
     if not gun then return nil end
     local r = gun:FindFirstChild("Shoot")
-    return (r and r:IsA("RemoteEvent")) and r or nil
-end
-
-local function getKnifeRemote()
-    local char = lp.Character
-    if not char then return nil end
-    local knife = char:FindFirstChild("Knife")
-    if not knife then return nil end
-    local events = knife:FindFirstChild("Events")
-    if not events then return nil end
-    local r = events:FindFirstChild("KnifeThrown")
     return (r and r:IsA("RemoteEvent")) and r or nil
 end
 
@@ -742,23 +665,6 @@ UIS.InputBegan:Connect(function(input, processed)
     local myChar = lp.Character
     local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myHRP then return end
-    local knifeRemote = getKnifeRemote()
-    if knifeRemote then
-        local target, dist = getNearestPlayerAndDist()
-        if dist <= KNIFE_STAB_DIST  then return end
-        if dist <= KNIFE_THROW_DIST then return end
-        if not target then warn("[MurderHUD] Knife: no valid target.") return end
-        local aimPos = getKnifeAimPosition(target)
-        if not aimPos then warn("[MurderHUD] Knife: no aim position.") return end
-        local ok, err = pcall(function()
-            knifeRemote:FireServer(
-                CFrame.new(myHRP.Position, aimPos),
-                CFrame.new(aimPos)
-            )
-        end)
-        if not ok then warn("[MurderHUD] Knife FireServer: " .. tostring(err)) end
-        return
-    end
     if not murderer then return end
     local aimPos = getAimPosition()
     if not aimPos then return end
