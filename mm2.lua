@@ -87,16 +87,16 @@ end
 local function setWalkSpeed(char)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if hum then
-        hum.WalkSpeed = 20
+        hum.WalkSpeed = 19
         hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
-            if hum.WalkSpeed ~= 20 then hum.WalkSpeed = 20 end
+            if hum.WalkSpeed ~= 19 then hum.WalkSpeed = 19 end
         end)
     else
         char.ChildAdded:Connect(function(child)
             if child:IsA("Humanoid") then
-                child.WalkSpeed = 20
+                child.WalkSpeed = 19
                 child:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
-                    if child.WalkSpeed ~= 20 then child.WalkSpeed = 20 end
+                    if child.WalkSpeed ~= 19 then child.WalkSpeed = 19 end
                 end)
             end
         end)
@@ -240,19 +240,11 @@ local function updateLpVisualFor(p)
     local pChar = p.Character
     if not pChar then removeLpVisual(p) return end
     local role = roles[p]
-    local lpColor
-    if role == "sheriff" then
-        lpColor = LP_COLOR.sheriff
-    elseif role ~= "murder" then
-        lpColor = LP_COLOR.norole
-    end
-    if lpColor then
-        local lv = lpVisuals[p]
-        if not lv or lv.color ~= lpColor then
-            attachLpVisual(p, pChar, lpColor)
-        end
-    else
-        removeLpVisual(p)
+    if role == "murder" then removeLpVisual(p) return end
+    local lpColor = role == "sheriff" and LP_COLOR.sheriff or LP_COLOR.norole
+    local lv = lpVisuals[p]
+    if not lv or lv.color ~= lpColor then
+        attachLpVisual(p, pChar, lpColor)
     end
 end
 
