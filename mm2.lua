@@ -553,7 +553,7 @@ local function getNearestPlayerAndDist()
 
     return nil, math.huge
 end
-w
+
 local function getKnifeAimPosition(p)
     if not p then return nil end
     local char = p.Character
