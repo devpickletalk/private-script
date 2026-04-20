@@ -284,6 +284,13 @@ local function refreshLpMurd()
     isLpMurd = (char and char:FindFirstChild("Knife") ~= nil)
             or (bp   and bp:FindFirstChild("Knife")   ~= nil)
     if prev == isLpMurd then return end
+    if not prev and isLpMurd then
+        local s = Instance.new("Sound")
+        s.SoundId = "rbxassetid://90905467412247"
+        s.Parent = Workspace
+        s:Play()
+        game:GetService("Debris"):AddItem(s, 10)
+    end
     if not isLpMurd then
         clearAllLpVisuals()
     else
@@ -424,6 +431,43 @@ local function setupLp()
         end)
     end
     refreshLpMurd()
+end
+
+local isLpSheriff = false
+local function refreshLpSheriff()
+    local char = lp.Character
+    local bp   = lp:FindFirstChild("Backpack")
+    local prev = isLpSheriff
+    isLpSheriff = (char and char:FindFirstChild("Gun") ~= nil)
+               or (bp   and bp:FindFirstChild("Gun")   ~= nil)
+    if prev == isLpSheriff then return end
+    if not prev and isLpSheriff then
+        local s = Instance.new("Sound")
+        s.SoundId = "rbxassetid://90905467412247"
+        s.Parent = Workspace
+        s:Play()
+        game:GetService("Debris"):AddItem(s, 10)
+    end
+end
+
+local function watchLpGun(container)
+    container.ChildAdded:Connect(function(child)
+        if child.Name == "Gun" then refreshLpSheriff() end
+    end)
+    container.ChildRemoved:Connect(function(child)
+        if child.Name == "Gun" then refreshLpSheriff() end
+    end)
+end
+
+do
+    local char = lp.Character
+    if char then watchLpGun(char) end
+    local bp = lp:FindFirstChild("Backpack")
+    if bp then watchLpGun(bp) end
+    lp.ChildAdded:Connect(function(child)
+        if child.Name == "Backpack" then watchLpGun(child) end
+    end)
+    refreshLpSheriff()
 end
 
 lp.CharacterAdded:Connect(function(char)
