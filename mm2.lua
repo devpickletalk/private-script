@@ -308,66 +308,6 @@ local function applyRole(p)
     end
 end
 
-local quickShotLoop = nil
-local quickShotCooldown = false
-
-local function stopQuickShotLoop()
-    if quickShotLoop then
-        quickShotLoop:Disconnect()
-        quickShotLoop = nil
-    end
-end
-
-local function startQuickShotLoop()
-    stopQuickShotLoop()
-    quickShotCooldown = false
-    quickShotLoop = RunService.Heartbeat:Connect(function()
-        if isLpMurd or isLpSheriff then
-            stopQuickShotLoop()
-            return
-        end
-        if quickShotCooldown then return end
-        local dropPart = nil
-        for _, desc in ipairs(Workspace:GetDescendants()) do
-            if desc.Name == "GunDrop" then dropPart = desc break end
-        end
-        if not dropPart then return end
-        if not murderer then return end
-        local mChar = murderer.Character
-        local mHRP  = mChar and mChar:FindFirstChild("HumanoidRootPart")
-        if not mHRP then return end
-        if (mHRP.Position - dropPart.Position).Magnitude > 20 then return end
-        local char = lp.Character
-        local bp   = lp:FindFirstChild("Backpack")
-        local gun  = (bp and bp:FindFirstChild("Gun")) or (char and char:FindFirstChild("Gun"))
-        if not gun then return end
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        if hum and gun.Parent ~= char then
-            local ok = pcall(function() hum:EquipTool(gun) end)
-            if not ok then
-                local wsModel = Workspace:FindFirstChild(lp.Name)
-                if wsModel then
-                    gun.Parent = wsModel
-                else
-                    warn("[MurderHUD] QuickShot fallback: no workspace model for " .. lp.Name)
-                end
-            end
-        end
-        local myHRP = char and char:FindFirstChild("HumanoidRootPart")
-        if not myHRP then return end
-        local aimPos = getAimPosition()
-        if not aimPos then return end
-        local remote = gun:FindFirstChild("Shoot")
-        if not remote or not remote:IsA("RemoteEvent") then return end
-        local ok2, err2 = pcall(function()
-            remote:FireServer(CFrame.new(myHRP.Position, aimPos), CFrame.new(aimPos))
-        end)
-        if not ok2 then warn("[MurderHUD] QuickShot fire: " .. tostring(err2)) end
-        quickShotCooldown = true
-        task.delay(0.5, function() quickShotCooldown = false end)
-    end)
-end
-
 -- ── LP murderer state ─────────────────────────────────────────────────────────
 local function refreshLpMurd()
     local char = lp.Character
@@ -380,11 +320,6 @@ local function refreshLpMurd()
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= lp then updateLpVisualFor(p) end
         end
-    end
-    if isLpMurd then
-        stopQuickShotLoop()
-    else
-        if not isLpSheriff then startQuickShotLoop() end
     end
 end
 
@@ -551,11 +486,6 @@ local function refreshLpSheriff()
     isLpSheriff = (char and char:FindFirstChild("Gun") ~= nil)
                or (bp   and bp:FindFirstChild("Gun")   ~= nil)
     if prev == isLpSheriff then return end
-    if isLpSheriff then
-        stopQuickShotLoop()
-    else
-        if not isLpMurd then startQuickShotLoop() end
-    end
 end
 
 local function watchLpGun(container)
