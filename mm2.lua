@@ -655,7 +655,7 @@ local function getAimPosition()
             rayParams.FilterDescendantsInstances = { myChar, char }
             local downHit = Workspace:Raycast(headPos, Vector3.new(0, -50, 0), rayParams)
             if downHit then
-                local midY = (headPos.Y + downHit.Position.Y) / 2
+                local midY = (headPos.Y + downHit.Position.Y) / 2 - 0.4
                 return Vector3.new(hrp.Position.X, midY, hrp.Position.Z) + hOffset
             end
             return headPos + hOffset
