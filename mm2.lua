@@ -386,17 +386,16 @@ local function watchChar(p, char)
             removeVisuals(p)
             if murderer == p then
                 murderer = nil
-                task.delay(6, function()
-                    gunDropped = false
-                    for _, pl in ipairs(Players:GetPlayers()) do
-                        if pl ~= lp then
-                            stickyRoles[pl] = nil
-                            applyRole(pl)
-                            updateLpVisualFor(pl)
-                        end
+                gunDropped = false
+                for _, pl in ipairs(Players:GetPlayers()) do
+                    if pl ~= lp then
+                        task.wait(6)
+                        stickyRoles[pl] = nil
+                        applyRole(pl)
+                        updateLpVisualFor(pl)
                     end
-                    endRound()
-                end)
+                end
+                endRound()     
             end
         end)
     end
