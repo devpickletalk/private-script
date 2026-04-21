@@ -647,7 +647,7 @@ local function getAimPosition()
             return Vector3.new(hrp.Position.X, hrp.Position.Y - 2, hrp.Position.Z) + hOffset
         elseif vel2.Y > 0 and vel2.Y < 20 then
             local t = torso or hrp
-            return t.Position + hOffset
+            return t.Position + Vector3.new(0, 0.75, 0) + hOffset
         elseif vel2.Y >= 20 and vel2.Y < 50 then
             return Vector3.new(hrp.Position.X, hrp.Position.Y + 2, hrp.Position.Z) + hOffset
         else
@@ -672,12 +672,13 @@ local function getAimPosition()
     end
     local vel  = hrp.AssemblyLinearVelocity
     local hVel = Vector3.new(vel.X, 0, vel.Z)
+    local aboveMid = Vector3.new(0, 0.75, 0)
     if hVel.Magnitude >= 15.8 then
-        return target.Position + hVel.Unit * WALK_LEAD
+        return target.Position + aboveMid + hVel.Unit * WALK_LEAD
     elseif hVel.Magnitude > 0 then
-        return target.Position + hVel.Unit * WALK_LEAD_SLOW
+        return target.Position + aboveMid + hVel.Unit * WALK_LEAD_SLOW
     end
-    return target.Position
+    return target.Position + aboveMid
 end
 
 -- ── Remote getters ────────────────────────────────────────────────────────────
