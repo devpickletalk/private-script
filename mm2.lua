@@ -638,22 +638,23 @@ local function getAimPosition()
     local isAir      = hum and hum.FloorMaterial == Enum.Material.Air
     local isClimbing = hum and hum:GetState() == Enum.HumanoidStateType.Climbing
     if isAir and not isClimbing then
-    local vel2   = hrp.AssemblyLinearVelocity
-    local hVel2  = Vector3.new(vel2.X, 0, vel2.Z)
-    local lead   = hVel2.Magnitude >= 15.8 and WALK_LEAD
-                or (hVel2.Magnitude > 0    and WALK_LEAD_SLOW or 0)
-    local hOffset = hVel2.Magnitude > 0 and hVel2.Unit * lead or Vector3.zero
-    if vel2.Y < -20 then
-        return Vector3.new(hrp.Position.X, hrp.Position.Y - 1, hrp.Position.Z) + hOffset
-    else
-        local headPos = head and head.Position or hrp.Position
-        rayParams.FilterDescendantsInstances = { myChar, char }
-        local downHit = Workspace:Raycast(headPos, Vector3.new(0, -50, 0), rayParams)
-        if downHit then
-            local midY = (headPos.Y + downHit.Position.Y) / 2
-            return Vector3.new(hrp.Position.X, midY, hrp.Position.Z) + hOffset
+        local vel2   = hrp.AssemblyLinearVelocity
+        local hVel2  = Vector3.new(vel2.X, 0, vel2.Z)
+        local lead   = hVel2.Magnitude >= 15.8 and WALK_LEAD
+                    or (hVel2.Magnitude > 0    and WALK_LEAD_SLOW or 0)
+        local hOffset = hVel2.Magnitude > 0 and hVel2.Unit * lead or Vector3.zero
+        if vel2.Y < -20 then
+            return Vector3.new(hrp.Position.X, hrp.Position.Y - 1, hrp.Position.Z) + hOffset
+        else
+            local headPos = head and head.Position or hrp.Position
+            rayParams.FilterDescendantsInstances = { myChar, char }
+            local downHit = Workspace:Raycast(headPos, Vector3.new(0, -50, 0), rayParams)
+            if downHit then
+                local midY = (headPos.Y + downHit.Position.Y) / 2
+                return Vector3.new(hrp.Position.X, midY, hrp.Position.Z) + hOffset
+            end
+            return headPos + hOffset
         end
-        return headPos + hOffset
     end
     local target = torso or hrp
     local myChar = lp.Character
