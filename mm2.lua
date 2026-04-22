@@ -28,6 +28,7 @@ local roundActive       = false
 local roundTimerThread  = nil
 local murderGui = nil
 local innocentGui = nil
+local sheriffGui = nil
 
 local ROLE_COLOR = {
     murder  = Color3.fromRGB(255, 0, 0),
@@ -500,6 +501,7 @@ local function refreshLpSheriff()
                or (bp   and bp:FindFirstChild("Gun")   ~= nil)
     if prev == isLpSheriff then return end
     if isLpSheriff and innocentGui then innocentGui.Enabled = false end
+    if sheriffGui then sheriffGui.Enabled = isLpSheriff end
 end
 
 local function watchLpGun(container)
@@ -806,6 +808,31 @@ local function doGrabGun()
     if not ok then warn("[MurderHUD] GrabGun: " .. tostring(err)) end
 end
 
+local function doShootMurder()
+    if not murderer then warn("[MurderHUD] ShootMurder: no murderer") return end
+    local char = lp.Character
+    local myHRP = char and char:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+    local mChar = murderer.Character
+    local mHRP = mChar and mChar:FindFirstChild("HumanoidRootPart")
+    if not mHRP then warn("[MurderHUD] ShootMurder: no murderer HRP") return end
+    local remote = getShootRemote()
+    if not remote then warn("[MurderHUD] ShootMurder: no Shoot remote") return end
+    local ok, err = pcall(function()
+        mHRP.Anchored = true
+        mHRP.CFrame = myHRP.CFrame + myHRP.CFrame.LookVector * 1
+    end)
+    if not ok then warn("[MurderHUD] ShootMurder anchor: " .. tostring(err)) end
+    local aimPos = mHRP.Position
+    local ok2, err2 = pcall(function()
+        remote:FireServer(CFrame.new(myHRP.Position, aimPos), CFrame.new(aimPos))
+    end)
+    if not ok2 then warn("[MurderHUD] ShootMurder FireServer: " .. tostring(err2)) end
+    task.delay(2, function()
+        pcall(function() if mHRP and mHRP.Parent then mHRP.Anchored = false end end)
+    end)
+end
+
 -- ── Murder GUI ────────────────────────────────────────────────────────────────
 do
     local gui = Instance.new("ScreenGui")
@@ -936,6 +963,77 @@ do
     end
 
     for _, obj in ipairs({ frame, grabBtn }) do
+        obj.InputBegan:Connect(onInputBegan)
+        obj.InputChanged:Connect(onInputChanged)
+    end
+
+    UIS.InputChanged:Connect(function(input)
+        if input ~= dragInput or not dragging then return end
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end)
+end
+
+-- ── Sheriff GUI ───────────────────────────────────────────────────────────────
+do
+    local gui = Instance.new("ScreenGui")
+    gui.Name         = "MurderHUD_SheriffGui"
+    gui.ResetOnSpawn = false
+    gui.Enabled      = false
+    gui.Parent       = lp:WaitForChild("PlayerGui")
+    sheriffGui       = gui
+
+    local frame = Instance.new("Frame")
+    frame.Size                   = UDim2.new(0, 170, 0, 60)
+    frame.Position               = UDim2.new(1, -180, 0, 10)
+    frame.BackgroundTransparency = 1
+    frame.Parent                 = gui
+
+    local shootBtn = Instance.new("TextButton")
+    shootBtn.Size             = UDim2.new(1, 0, 0, 50)
+    shootBtn.Position         = UDim2.new(0, 0, 0, 0)
+    shootBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    shootBtn.Text             = "Shoot Murder"
+    shootBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
+    shootBtn.TextSize         = 18
+    shootBtn.Font             = Enum.Font.GothamSemibold
+    shootBtn.Parent           = frame
+    local c1 = Instance.new("UICorner")
+    c1.CornerRadius = UDim.new(0, 10)
+    c1.Parent       = shootBtn
+
+    shootBtn.MouseButton1Click:Connect(function()
+        local ok, err = pcall(doShootMurder)
+        if not ok then warn("[MurderHUD] ShootMurder: " .. tostring(err)) end
+    end)
+
+    local dragging = false
+    local dragInput, dragStart, startPos
+
+    local function onInputBegan(input)
+        local isMouse = input.UserInputType == Enum.UserInputType.MouseButton1
+        local isTouch = input.UserInputType == Enum.UserInputType.Touch
+        if not (isMouse or isTouch) then return end
+        dragging  = true
+        dragStart = input.Position
+        startPos  = frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+
+    local function onInputChanged(input)
+        local isMouse = input.UserInputType == Enum.UserInputType.MouseMovement
+        local isTouch = input.UserInputType == Enum.UserInputType.Touch
+        if isMouse or isTouch then dragInput = input end
+    end
+
+    for _, obj in ipairs({ frame, shootBtn }) do
         obj.InputBegan:Connect(onInputBegan)
         obj.InputChanged:Connect(onInputChanged)
     end
