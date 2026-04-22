@@ -497,6 +497,7 @@ local function refreshLpSheriff()
     isLpSheriff = (char and char:FindFirstChild("Gun") ~= nil)
                or (bp   and bp:FindFirstChild("Gun")   ~= nil)
     if prev == isLpSheriff then return end
+    if isLpSheriff and innocentGui then innocentGui.Enabled = false end
 end
 
 local function watchLpGun(container)
@@ -961,7 +962,7 @@ end)
 Workspace.DescendantAdded:Connect(function(desc)
     if desc.Name ~= "GunDrop" then return end
     gunDropped = true
-    if innocentGui then innocentGui.Enabled = not isLpMurd and not isLpSheriff end
+    if innocentGui then innocentGui.Enabled = not isLpMurd end
     local ok, err = pcall(attachGunDropHighlight, desc)
     if not ok then warn("[MurderHUD] GunDrop DescendantAdded: " .. tostring(err)) end
 end)
@@ -975,7 +976,7 @@ for _, desc in ipairs(Workspace:GetDescendants()) do
     end
 end
 if gunDropped and innocentGui then
-    innocentGui.Enabled = not isLpMurd and not isLpSheriff
+    innocentGui.Enabled = not isLpMurd
 end
 
 Workspace.DescendantRemoving:Connect(function(desc)
