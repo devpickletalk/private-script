@@ -312,18 +312,22 @@ end
 
 -- ── LP murderer state ─────────────────────────────────────────────────────────
 local function refreshLpMurd()
-    local char = lp.Character
-    local bp   = lp:FindFirstChild("Backpack")
-    local prev = isLpMurd
-    isLpMurd = (char and char:FindFirstChild("Knife") ~= nil)
-            or (bp   and bp:FindFirstChild("Knife")   ~= nil)
+    local char    = lp.Character
+    local bp      = lp:FindFirstChild("Backpack")
+    local wsModel = Workspace:FindFirstChild(lp.Name)
+    local prev    = isLpMurd
+    isLpMurd = (char    and char:FindFirstChild("Knife")    ~= nil)
+            or (bp      and bp:FindFirstChild("Knife")      ~= nil)
+            or (wsModel and wsModel:FindFirstChild("Knife") ~= nil)
     if prev == isLpMurd then return end
-    if murderGui then murderGui.Enabled = isLpMurd end
     if isLpMurd then
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= lp then updateLpVisualFor(p) end
         end
+    else
+        clearAllLpVisuals()
     end
+    if murderGui then murderGui.Enabled = isLpMurd end
 end
 
 -- ── Watch container for tool events ──────────────────────────────────────────
@@ -783,7 +787,7 @@ do
     murderGui       = gui
 
     local frame = Instance.new("Frame")
-    frame.Size                  = UDim2.new(0, 170, 0, 120)
+    frame.Size                  = UDim2.new(0, 170, 0, 60)
     frame.Position              = UDim2.new(0.5, -85, 0.5, -60)
     frame.BackgroundTransparency = 1
     frame.Parent                = gui
@@ -801,27 +805,9 @@ do
     c1.CornerRadius = UDim.new(0, 10)
     c1.Parent       = throwBtn
 
-    local killBtn = Instance.new("TextButton")
-    killBtn.Size             = UDim2.new(1, 0, 0, 50)
-    killBtn.Position         = UDim2.new(0, 0, 0, 60)
-    killBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    killBtn.Text             = "Kill All"
-    killBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
-    killBtn.TextSize         = 18
-    killBtn.Font             = Enum.Font.GothamSemibold
-    killBtn.Parent           = frame
-    local c2 = Instance.new("UICorner")
-    c2.CornerRadius = UDim.new(0, 10)
-    c2.Parent       = killBtn
-
     throwBtn.MouseButton1Click:Connect(function()
         local ok, err = pcall(doThrowKnife)
         if not ok then warn("[MurderHUD] ThrowKnife: " .. tostring(err)) end
-    end)
-
-    killBtn.MouseButton1Click:Connect(function()
-        local ok, err = pcall(doKillAll)
-        if not ok then warn("[MurderHUD] KillAll: " .. tostring(err)) end
     end)
 
     local dragging = false
@@ -847,7 +833,7 @@ do
         if isMouse or isTouch then dragInput = input end
     end
 
-    for _, obj in ipairs({ frame, throwBtn, killBtn }) do
+    for _, obj in ipairs({ frame, throwBtn }) do
         obj.InputBegan:Connect(onInputBegan)
         obj.InputChanged:Connect(onInputChanged)
     end
@@ -863,3 +849,11 @@ do
         )
     end)
 end
+
+lp.Chatted:Connect(function(msg)
+    local lower = msg:lower()
+    if lower == ";killall" or lower == ";kill" then
+        local ok, err = pcall(doKillAll)
+        if not ok then warn("[MurderHUD] KillAll: " .. tostring(err)) end
+    end
+end)
