@@ -608,7 +608,7 @@ local function getAimPosition()
             return Vector3.new(hrp.Position.X, hrp.Position.Y - 2, hrp.Position.Z) + hOffset
         elseif vel2.Y > 0 and vel2.Y < 20 then
             local t = torso or hrp
-            return t.Position + Vector3.new(0, 0.3, 0) + hOffset
+            return t.Position + Vector3.new(0, 0.4, 0) + hOffset
         elseif vel2.Y >= 20 and vel2.Y < 50 then
             return Vector3.new(hrp.Position.X, hrp.Position.Y + 0.30, hrp.Position.Z) + hOffset
         else
@@ -616,7 +616,7 @@ local function getAimPosition()
             rayParams.FilterDescendantsInstances = { myChar, char }
             local downHit = Workspace:Raycast(headPos, Vector3.new(0, -50, 0), rayParams)
             if downHit then
-                local midY = (headPos.Y + downHit.Position.Y) / 2 - 0.3
+                local midY = (headPos.Y + downHit.Position.Y) / 2 - 0.2
                 return Vector3.new(hrp.Position.X, midY, hrp.Position.Z) + hOffset
             end
             return headPos + hOffset
@@ -632,7 +632,7 @@ local function getAimPosition()
     end
     local vel  = hrp.AssemblyLinearVelocity
     local hVel = Vector3.new(vel.X, 0, vel.Z)
-    local aboveMid = Vector3.new(0, 0.75, 0)
+    local aboveMid = Vector3.new(0, 0.35, 0)
     if hVel.Magnitude >= 15.8 then
         return target.Position + aboveMid + hVel.Unit * WALK_LEAD
     elseif hVel.Magnitude > 0 then
@@ -667,4 +667,60 @@ UIS.InputBegan:Connect(function(input, processed)
     local ok, err = pcall(function()
         remote:FireServer(CFrame.new(myHRP.Position, aimPos), CFrame.new(aimPos))
     end)
+end)
+
+-- ── Chat command: ;killall ────────────────────────────────────────────────────
+local function doKillAll()
+    local char = lp.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    local knife = char:FindFirstChild("Knife")
+    if not knife then
+        local bp = lp:FindFirstChild("Backpack")
+        if bp then
+            local bpKnife = bp:FindFirstChild("Knife")
+            if bpKnife then
+                local ok2, err2 = pcall(function() hum:EquipTool(bpKnife) end)
+                if not ok2 then warn("[MurderHUD] KillAll equip: " .. tostring(err2)) return end
+                task.wait(0.1)
+                knife = char:FindFirstChild("Knife")
+            end
+        end
+    end
+    if not knife then warn("[MurderHUD] KillAll: no Knife found") return end
+    local stab = knife:FindFirstChild("Stab")
+    if not (stab and stab:IsA("RemoteEvent")) then warn("[MurderHUD] KillAll: Stab remote not found") return end
+    local myHRP = char:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+    local hrpList = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= lp and p.Character then
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local ok3, err3 = pcall(function()
+                    hrp.Anchored = true
+                    hrp.CFrame = myHRP.CFrame + myHRP.CFrame.LookVector * 1
+                end)
+                if ok3 then table.insert(hrpList, hrp)
+                else warn("[MurderHUD] KillAll anchor: " .. tostring(err3)) end
+            end
+        end
+    end
+    local ok4, err4 = pcall(function() stab:FireServer("Slash") end)
+    if not ok4 then warn("[MurderHUD] KillAll FireServer: " .. tostring(err4)) end
+    task.delay(2, function()
+        for _, hrp in ipairs(hrpList) do
+            pcall(function()
+                if hrp and hrp.Parent then hrp.Anchored = false end
+            end)
+        end
+    end)
+end
+
+lp.Chatted:Connect(function(msg)
+    if msg:lower() == ";killall" then
+        local ok, err = pcall(doKillAll)
+        if not ok then warn("[MurderHUD] KillAll: " .. tostring(err)) end
+    end
 end)
