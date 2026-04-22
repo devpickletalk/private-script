@@ -811,13 +811,14 @@ end
 local function doShootMurder()
     if not murderer then warn("[MurderHUD] ShootMurder: no murderer") return end
     local char = lp.Character
-    local myHRP = char and char:FindFirstChild("HumanoidRootPart")
+    if not char then return end
+    local myHRP = char:FindFirstChild("HumanoidRootPart")
     if not myHRP then return end
+    local remote = getShootRemote()
+    if not remote then warn("[MurderHUD] ShootMurder: no Shoot remote") return end
     local mChar = murderer.Character
     local mHRP = mChar and mChar:FindFirstChild("HumanoidRootPart")
     if not mHRP then warn("[MurderHUD] ShootMurder: no murderer HRP") return end
-    local remote = getShootRemote()
-    if not remote then warn("[MurderHUD] ShootMurder: no Shoot remote") return end
     local ok, err = pcall(function()
         mHRP.Anchored = true
         mHRP.CFrame = myHRP.CFrame + myHRP.CFrame.LookVector * 1
