@@ -643,9 +643,12 @@ end
 
 -- ── Remote getters ────────────────────────────────────────────────────────────
 local function getShootRemote()
-    local char = lp.Character
-    if not char then return nil end
-    local gun = char:FindFirstChild("Gun")
+    local char    = lp.Character
+    local bp      = lp:FindFirstChild("Backpack")
+    local wsModel = Workspace:FindFirstChild(lp.Name)
+    local gun = (char    and char:FindFirstChild("Gun"))
+             or (bp      and bp:FindFirstChild("Gun"))
+             or (wsModel and wsModel:FindFirstChild("Gun"))
     if not gun then return nil end
     local r = gun:FindFirstChild("Shoot")
     return (r and r:IsA("RemoteEvent")) and r or nil
