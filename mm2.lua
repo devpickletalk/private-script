@@ -815,23 +815,40 @@ local function doShootMurder()
     if not murderer then warn("[MurderHUD] ShootMurder: no murderer") return end
     local char = lp.Character
     if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
     local myHRP = char:FindFirstChild("HumanoidRootPart")
     if not myHRP then return end
-    local remote = getShootRemote()
+    local gun = char:FindFirstChild("Gun")
+    if not gun then
+        local bp = lp:FindFirstChild("Backpack")
+        if bp then
+            local bpGun = bp:FindFirstChild("Gun")
+            if bpGun then
+                local ok2, err2 = pcall(function() hum:EquipTool(bpGun) end)
+                if not ok2 then warn("[MurderHUD] ShootMurder equip: " .. tostring(err2)) return end
+                task.wait(0.1)
+                gun = char:FindFirstChild("Gun")
+            end
+        end
+    end
+    if not gun then warn("[MurderHUD] ShootMurder: no Gun found") return end
+    local r = gun:FindFirstChild("Shoot")
+    local remote = (r and r:IsA("RemoteEvent")) and r or nil
     if not remote then warn("[MurderHUD] ShootMurder: no Shoot remote") return end
     local mChar = murderer.Character
     local mHRP = mChar and mChar:FindFirstChild("HumanoidRootPart")
     if not mHRP then warn("[MurderHUD] ShootMurder: no murderer HRP") return end
     local ok, err = pcall(function()
         mHRP.Anchored = true
-        mHRP.CFrame = myHRP.CFrame + myHRP.CFrame.LookVector * 1
+        mHRP.CFrame = myHRP.CFrame * CFrame.new(0, 0, -1)
     end)
     if not ok then warn("[MurderHUD] ShootMurder anchor: " .. tostring(err)) end
     local aimPos = mHRP.Position
-    local ok2, err2 = pcall(function()
+    local ok3, err3 = pcall(function()
         remote:FireServer(CFrame.new(myHRP.Position, aimPos), CFrame.new(aimPos))
     end)
-    if not ok2 then warn("[MurderHUD] ShootMurder FireServer: " .. tostring(err2)) end
+    if not ok3 then warn("[MurderHUD] ShootMurder FireServer: " .. tostring(err3)) end
     task.delay(2, function()
         pcall(function() if mHRP and mHRP.Parent then mHRP.Anchored = false end end)
     end)
