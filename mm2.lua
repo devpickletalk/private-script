@@ -554,33 +554,6 @@ Players.PlayerRemoving:Connect(function(p)
     charParts[p] = nil
 end)
 
--- ── GunDrop: event-driven ─────────────────────────────────────────────────────
-Workspace.DescendantAdded:Connect(function(desc)
-    if desc.Name ~= "GunDrop" then return end
-    gunDropped = true
-    if innocentGui then innocentGui.Enabled = not isLpMurd and not isLpSheriff end
-    local ok, err = pcall(attachGunDropHighlight, desc)
-    if not ok then warn("[MurderHUD] GunDrop DescendantAdded: " .. tostring(err)) end
-end)
-
-Workspace.DescendantRemoving:Connect(function(desc)
-    if desc.Name ~= "GunDrop" then return end
-    gunDropped = false
-    if innocentGui then innocentGui.Enabled = false end
-end)
-
--- Catch any drops already in workspace at startup
-for _, desc in ipairs(Workspace:GetDescendants()) do
-    if desc.Name == "GunDrop" then
-        gunDropped = true
-        local ok, err = pcall(attachGunDropHighlight, desc)
-        if not ok then warn("[MurderHUD] GunDrop startup: " .. tostring(err)) end
-    end
-end
-if gunDropped and innocentGui then
-    innocentGui.Enabled = not isLpMurd and not isLpSheriff
-end
-
 -- ── FakeHRP sync: Heartbeat (positional, must remain per-frame) ───────────────
 RunService.Heartbeat:Connect(function()
     for p, fakePart in pairs(fakeHRPs) do
@@ -982,4 +955,31 @@ lp.Chatted:Connect(function(msg)
         local ok, err = pcall(doKillAll)
         if not ok then warn("[MurderHUD] KillAll: " .. tostring(err)) end
     end
+end)
+
+-- ── GunDrop: event-driven ─────────────────────────────────────────────────────
+Workspace.DescendantAdded:Connect(function(desc)
+    if desc.Name ~= "GunDrop" then return end
+    gunDropped = true
+    if innocentGui then innocentGui.Enabled = not isLpMurd and not isLpSheriff end
+    local ok, err = pcall(attachGunDropHighlight, desc)
+    if not ok then warn("[MurderHUD] GunDrop DescendantAdded: " .. tostring(err)) end
+end)
+
+-- Catch any drops already in workspace at startup
+for _, desc in ipairs(Workspace:GetDescendants()) do
+    if desc.Name == "GunDrop" then
+        gunDropped = true
+        local ok, err = pcall(attachGunDropHighlight, desc)
+        if not ok then warn("[MurderHUD] GunDrop startup: " .. tostring(err)) end
+    end
+end
+if gunDropped and innocentGui then
+    innocentGui.Enabled = not isLpMurd and not isLpSheriff
+end
+
+Workspace.DescendantRemoving:Connect(function(desc)
+    if desc.Name ~= "GunDrop" then return end
+    gunDropped = false
+    if innocentGui then innocentGui.Enabled = false end
 end)
