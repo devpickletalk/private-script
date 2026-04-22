@@ -26,6 +26,7 @@ local gunDropped      = false
 local roundActive       = false
 local roundTimerThread  = nil
 local murderGui = nil
+local innocentGui = nil
 
 local ROLE_COLOR = {
     murder  = Color3.fromRGB(255, 0, 0),
@@ -253,6 +254,7 @@ local function endRound()
     if not roundActive then return end
     roundActive    = false
     if murderGui then murderGui.Enabled = false end
+    if innocentGui then innocentGui.Enabled = false end
     gunDropped     = false
     if roundTimerThread then
         task.cancel(roundTimerThread)
@@ -312,22 +314,24 @@ end
 
 -- ── LP murderer state ─────────────────────────────────────────────────────────
 local function refreshLpMurd()
-    local char    = lp.Character
-    local bp      = lp:FindFirstChild("Backpack")
-    local wsModel = Workspace:FindFirstChild(lp.Name)
-    local prev    = isLpMurd
-    isLpMurd = (char    and char:FindFirstChild("Knife")    ~= nil)
-            or (bp      and bp:FindFirstChild("Knife")      ~= nil)
-            or (wsModel and wsModel:FindFirstChild("Knife") ~= nil)
+    local char = lp.Character
+    local bp   = lp:FindFirstChild("Backpack")
+    local prev = isLpMurd
+    isLpMurd = (char and char:FindFirstChild("Knife") ~= nil)
+            or (bp   and bp:FindFirstChild("Knife")   ~= nil)
     if prev == isLpMurd then return end
     if isLpMurd then
         for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= lp then updateLpVisualFor(p) end
+            if p ~= lp then
+                applyRole(p)
+                updateLpVisualFor(p)
+            end
         end
     else
         clearAllLpVisuals()
     end
     if murderGui then murderGui.Enabled = isLpMurd end
+    if innocentGui then innocentGui.Enabled = not isLpMurd and not isLpSheriff and gunDropped end
 end
 
 -- ── Watch container for tool events ──────────────────────────────────────────
@@ -493,6 +497,7 @@ local function refreshLpSheriff()
     isLpSheriff = (char and char:FindFirstChild("Gun") ~= nil)
                or (bp   and bp:FindFirstChild("Gun")   ~= nil)
     if prev == isLpSheriff then return end
+    if innocentGui then innocentGui.Enabled = not isLpMurd and not isLpSheriff and gunDropped end
 end
 
 local function watchLpGun(container)
@@ -554,6 +559,7 @@ end)
 Workspace.DescendantAdded:Connect(function(desc)
     if desc.Name ~= "GunDrop" then return end
     gunDropped = true
+    if innocentGui then innocentGui.Enabled = not isLpMurd and not isLpSheriff and gunDropped end
     local ok, err = pcall(attachGunDropHighlight, desc)
     if not ok then warn("[MurderHUD] GunDrop DescendantAdded: " .. tostring(err)) end
 end)
@@ -777,6 +783,26 @@ local function doKillAll()
     end)
 end
 
+local function doGrabGun()
+    local char = lp.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local savedCFrame = hrp.CFrame
+    local gunDrop = nil
+    for _, desc in ipairs(Workspace:GetDescendants()) do
+        if desc.Name == "GunDrop" and desc:IsA("BasePart") then
+            gunDrop = desc
+            break
+        end
+    end
+    if not gunDrop then warn("[MurderHUD] GrabGun: no GunDrop found") return end
+    local ok, err = pcall(function()
+        hrp.CFrame = CFrame.new(gunDrop.Position)
+        hrp.CFrame = savedCFrame
+    end)
+    if not ok then warn("[MurderHUD] GrabGun: " .. tostring(err)) end
+end
+
 -- ── Murder GUI ────────────────────────────────────────────────────────────────
 do
     local gui = Instance.new("ScreenGui")
@@ -834,6 +860,79 @@ do
     end
 
     for _, obj in ipairs({ frame, throwBtn }) do
+        obj.InputBegan:Connect(onInputBegan)
+        obj.InputChanged:Connect(onInputChanged)
+    end
+
+    UIS.InputChanged:Connect(function(input)
+        if input ~= dragInput or not dragging then return end
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end)
+end
+
+-- ── Innocent GUI ──────────────────────────────────────────────────────────────
+do
+    local gui = Instance.new("ScreenGui")
+    gui.Name         = "MurderHUD_InnocentGui"
+    gui.ResetOnSpawn = false
+    gui.Enabled      = false
+    gui.Parent       = lp:WaitForChild("PlayerGui")
+    innocentGui      = gui
+
+    local frame = Instance.new("Frame")
+    frame.Size                   = UDim2.new(0, 170, 0, 60)
+    frame.Position               = UDim2.new(1, -180, 0, 80)
+    frame.BackgroundTransparency = 1
+    frame.Parent                 = gui
+
+    local grabBtn = Instance.new("TextButton")
+    grabBtn.Size             = UDim2.new(1, 0, 0, 50)
+    grabBtn.Position         = UDim2.new(0, 0, 0, 0)
+    grabBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 40)
+    grabBtn.Text             = "Grab Gun"
+    grabBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
+    grabBtn.TextSize         = 18
+    grabBtn.Font             = Enum.Font.GothamSemibold
+    grabBtn.Parent           = frame
+    local c1 = Instance.new("UICorner")
+    c1.CornerRadius = UDim.new(0, 10)
+    c1.Parent       = grabBtn
+
+    grabBtn.MouseButton1Click:Connect(function()
+        local ok, err = pcall(doGrabGun)
+        if not ok then warn("[MurderHUD] GrabGun: " .. tostring(err)) end
+    end)
+
+    local dragging = false
+    local dragInput, dragStart, startPos
+
+    local function onInputBegan(input)
+        local isMouse = input.UserInputType == Enum.UserInputType.MouseButton1
+        local isTouch = input.UserInputType == Enum.UserInputType.Touch
+        if not (isMouse or isTouch) then return end
+        dragging  = true
+        dragStart = input.Position
+        startPos  = frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+
+    local function onInputChanged(input)
+        local isMouse = input.UserInputType == Enum.UserInputType.MouseMovement
+        local isTouch = input.UserInputType == Enum.UserInputType.Touch
+        if isMouse or isTouch then dragInput = input end
+    end
+
+    for _, obj in ipairs({ frame, grabBtn }) do
         obj.InputBegan:Connect(onInputBegan)
         obj.InputChanged:Connect(onInputChanged)
     end
