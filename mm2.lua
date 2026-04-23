@@ -345,7 +345,8 @@ local function refreshLpMurd()
     else
         clearAllLpVisuals()
     end
-    if murderGui then murderGui.Enabled = isLpMurd end
+    local lpInLobby = RegularLobby and lp.Character and lp.Character:IsDescendantOf(RegularLobby)
+    if murderGui then murderGui.Enabled = isLpMurd and not lpInLobby end
 end
 
 -- ── Watch container for tool events ──────────────────────────────────────────
@@ -518,7 +519,9 @@ local function refreshLpSheriff()
     isLpSheriff = (char and char:FindFirstChild("Gun") ~= nil)
                or (bp   and bp:FindFirstChild("Gun")   ~= nil)
     if prev == isLpSheriff then return end
-    if isLpSheriff and innocentGui then innocentGui.Enabled = false end
+    local lpInLobby = RegularLobby and lp.Character and lp.Character:IsDescendantOf(RegularLobby)
+    if innocentGui then innocentGui.Enabled = lpInLobby and false or (not isLpSheriff and innocentGui.Enabled) end
+    if murderGui and lpInLobby then murderGui.Enabled = false end
 end
 
 local function watchLpGun(container)
@@ -1003,7 +1006,8 @@ end)
 Workspace.DescendantAdded:Connect(function(desc)
     if desc.Name ~= "GunDrop" then return end
     gunDropped = true
-    if innocentGui then innocentGui.Enabled = not isLpMurd end
+    local lpInLobby = RegularLobby and lp.Character and lp.Character:IsDescendantOf(RegularLobby)
+    if innocentGui then innocentGui.Enabled = not isLpMurd and not lpInLobby end
     local ok, err = pcall(attachGunDropHighlight, desc)
     if not ok then warn("[MurderHUD] GunDrop DescendantAdded: " .. tostring(err)) end
 end)
@@ -1022,7 +1026,6 @@ end
 
 Workspace.DescendantRemoving:Connect(function(desc)
     if desc.Name ~= "GunDrop" then return end
-    gunDropped = false
     if innocentGui then innocentGui.Enabled = false end
 end)
 
