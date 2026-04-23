@@ -1,5 +1,16 @@
 -- LocalScript: StarterPlayerScripts
 
+local BLOCKED_USERS = {
+    3882788546, -- replace with actual userids
+}
+
+for _, id in ipairs(BLOCKED_USERS) do
+    if lp.UserId == id then
+        lp:Kick("You're blocked from using this script")
+        return
+    end
+end
+
 if _G.__MurderHUD_Running then return end
 _G.__MurderHUD_Running = true
 
