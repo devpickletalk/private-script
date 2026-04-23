@@ -593,7 +593,6 @@ RunService.Heartbeat:Connect(function()
                     local v = list[i]
                     if v and v.Parent and v.CanCollide then
                         v.CanCollide = false
-                        break
                     end
                 end
             end
