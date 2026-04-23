@@ -655,7 +655,7 @@ local function getAimPosition()
     local aboveMid = Vector3.new(0, 0.35, 0)
     if head then
         rayParams.FilterDescendantsInstances = { myChar, char }
-        local ceilHit = Workspace:Raycast(head.Position, Vector3.new(0, 6, 0), rayParams)
+        local ceilHit = Workspace:Raycast(head.Position, Vector3.new(0, 3.5, 0), rayParams)
         if ceilHit then
             local midY = (head.Position.Y + ceilHit.Position.Y) / 2
             return Vector3.new(hrp.Position.X, midY, hrp.Position.Z)
