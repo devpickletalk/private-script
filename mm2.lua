@@ -656,12 +656,16 @@ end
 UIS.InputBegan:Connect(function(input, processed)
     if processed then return end
     local isFire = input.UserInputType == Enum.UserInputType.MouseButton1
-               or  input.UserInputType == Enum.UserInputType.Touch
+               or (input.UserInputType == Enum.UserInputType.Touch
+                   and not UIS:GetFocusedTextBox()
+                   and input.Position.X > (workspace.CurrentCamera.ViewportSize.X * 0.35))
     if not isFire then return end
     local myChar = lp.Character
     local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myHRP then return end
     if not murderer then return end
+    local wsModel = Workspace:FindFirstChild(lp.Name)
+    if not wsModel or not wsModel:FindFirstChild("Gun") then return end
     local aimPos = getAimPosition()
     if not aimPos then return end
     local remote = getShootRemote()
