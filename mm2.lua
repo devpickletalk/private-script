@@ -261,12 +261,14 @@ local function endRound()
     for p in pairs(visuals) do
         local pChar = p.Character
         if not lobby or not pChar or pChar:IsDescendantOf(lobby) then
+            wait(9)
             removeVisuals(p)
         end
     end
     for p in pairs(lpVisuals) do
         local pChar = p.Character
         if not lobby or not pChar or pChar:IsDescendantOf(lobby) then
+            wait(9)
             removeLpVisual(p)
         end
     end
