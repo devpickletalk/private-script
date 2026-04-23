@@ -27,7 +27,7 @@ local gunDropped      = false
 local roundActive       = false
 local murderGui = nil
 local innocentGui = nil
-local RegularLobby = Workspace:FindFirstChild("RegularLobby")
+local RegularLobby = Workspace:FindFirstChild("RegularLobby") and Workspace.RegularLobby:FindFirstChild("MainLobby")
 
 local ROLE_COLOR = {
     murder  = Color3.fromRGB(255, 0, 0),
