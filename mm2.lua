@@ -1058,3 +1058,15 @@ task.spawn(function()
     if timerLabel.Active and not roundActive then startRound()
     elseif not timerLabel.Active and roundActive then endRound() end
 end)
+
+local MAX_VELOCITY = 80
+
+RunService.Heartbeat:Connect(function()
+    local char = lp.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local vel = hrp.AssemblyLinearVelocity
+    if vel.Magnitude > MAX_VELOCITY then
+        hrp.AssemblyLinearVelocity = vel.Unit * MAX_VELOCITY
+    end
+end)
