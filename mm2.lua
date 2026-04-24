@@ -22,21 +22,25 @@ local murderer          = nil
 local isLpMurd          = false
 local isLpSheriff = false
 local gunDropHighlights = {}
-local originalSheriff = nil
 local gunDropped      = false
 local roundActive       = false
 local murderGui = nil
 local innocentGui = nil
-local LOBBY_MIN = Vector3.new(-56, 492, -91)
-local LOBBY_MAX = Vector3.new(88, 554, 76)
 local function isInLobby(char)
     if not char then return false end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
-    local p = hrp.Position
-    return p.X >= LOBBY_MIN.X and p.X <= LOBBY_MAX.X
-       and p.Y >= LOBBY_MIN.Y and p.Y <= LOBBY_MAX.Y
-       and p.Z >= LOBBY_MIN.Z and p.Z <= LOBBY_MAX.Z
+    local lobbyParts = Workspace:FindFirstChild("RegularLobby")
+        and Workspace.RegularLobby:FindFirstChild("MainLobby")
+        and Workspace.RegularLobby.MainLobby:FindFirstChild("Parts")
+    if not lobbyParts then return false end
+    local ok, cf, size = pcall(function() return lobbyParts:GetBoundingBox() end)
+    if not ok then return false end
+    local localPos = cf:PointToObjectSpace(hrp.Position)
+    local half = size / 2
+    return math.abs(localPos.X) <= half.X
+       and math.abs(localPos.Y) <= half.Y
+       and math.abs(localPos.Z) <= half.Z
 end
 
 local ROLE_COLOR = {
@@ -270,14 +274,14 @@ local function endRound()
     for p in pairs(visuals) do
         local pChar = p.Character
         if not pChar or isInLobby(pChar) then
-            wait(9)
+            task.wait(9)
             removeVisuals(p)
         end
     end
     for p in pairs(lpVisuals) do
         local pChar = p.Character
-        if not lobby or not pChar or pChar:IsDescendantOf(lobby) then
-            wait(9)
+        if not pChar or isInLobby(pChar) then
+            task.wait(9)
             removeLpVisual(p)
         end
     end
@@ -513,10 +517,6 @@ local function setupLp()
     local bp = lp:FindFirstChild("Backpack")
     if bp then
         watchContainer(lp, bp, true)
-    else
-        lp.ChildAdded:Connect(function(child)
-            if child.Name == "Backpack" then watchContainer(lp, child, true) end
-        end)
     end
     refreshLpMurd()
 end
@@ -547,11 +547,15 @@ do
     if char then watchLpGun(char) end
     local bp = lp:FindFirstChild("Backpack")
     if bp then watchLpGun(bp) end
-    lp.ChildAdded:Connect(function(child)
-        if child.Name == "Backpack" then watchLpGun(child) end
-    end)
     refreshLpSheriff()
 end
+
+lp.ChildAdded:Connect(function(child)
+    if child.Name == "Backpack" then
+        watchContainer(lp, child, true)
+        watchLpGun(child)
+    end
+end)
 
 lp.CharacterAdded:Connect(function(char)
     setWalkSpeed(char)
@@ -818,7 +822,7 @@ local function doKillAll()
         end
     end
     if not knife then warn("[MurderHUD] KillAll: no Knife found") return end
-    local knifeEvents = knife and knife:FindFirstChild("Events")
+    local knifeEvents = knife:FindFirstChild("Events")
     local stab = knifeEvents and knifeEvents:FindFirstChild("KnifeStabbed")
     if not (stab and stab:IsA("RemoteEvent")) then
         pcall(function() lp.Character:FindFirstChild("Knife").Events.KnifeStabbed:FireServer() end)
@@ -1069,7 +1073,7 @@ task.spawn(function()
     end)
     lp.CharacterAdded:Connect(function(char)
         char.AncestryChanged:Connect(function(_, parent)
-            local inLobby = isInLobby(char)
+            local inLobby = isInLobby(lpChar)
             if murderGui then murderGui.Enabled = not inLobby and isLpMurd end
             if innocentGui then innocentGui.Enabled = not inLobby and (gunDropped and not isLpMurd and not isLpSheriff) end
         end)
@@ -1077,7 +1081,7 @@ task.spawn(function()
     local lpChar = lp.Character
     if lpChar then
         lpChar.AncestryChanged:Connect(function(_, parent)
-            local inLobby = isInLobby(char)
+            local inLobby = isInLobby(lpChar)
             if murderGui then murderGui.Enabled = not inLobby and isLpMurd end
             if innocentGui then innocentGui.Enabled = not inLobby and (gunDropped and not isLpMurd and not isLpSheriff) end
         end)
