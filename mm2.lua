@@ -3,8 +3,8 @@
 if _G.__MurderHUD_Running then return end
 _G.__MurderHUD_Running = true
 
-local WALK_LEAD = 4.7
-local WALK_LEAD_SLOW = 1.5
+local WALK_LEAD = 4.6
+local WALK_LEAD_SLOW = 1.4
 local WALK_LEAD_THROW = 0.4
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -630,7 +630,7 @@ local function getAimPosition()
         local hOffset = hVel2.Magnitude > 0 and hVel2.Unit * lead or Vector3.zero
         if vel2.Y < -20 then
             return Vector3.new(hrp.Position.X, hrp.Position.Y - 2, hrp.Position.Z) + hOffset
-        elseif vel2.Y > 2.5 and vel2.Y < 20 then
+        elseif vel2.Y > 3 and vel2.Y < 20 then
             local t = torso or hrp
             return t.Position + Vector3.new(0, 0.3, 0) + hOffset
         elseif vel2.Y >= 20 and vel2.Y < 50 then
@@ -672,7 +672,7 @@ local function getAimPosition()
             return Vector3.new(hrp.Position.X, midY, hrp.Position.Z)
         end
     end
-    if hVel.Magnitude >= 15.8 then
+    if hVel.Magnitude >= 15.87 then
         return target.Position + aboveMid + hVel.Unit * WALK_LEAD
     elseif hVel.Magnitude >= 9 then
         return target.Position + aboveMid + hVel.Unit * WALK_LEAD_SLOW
