@@ -720,34 +720,12 @@ UIS.InputEnded:Connect(function(input, processed)
     if not murderer then return end
     local wsModel = Workspace:FindFirstChild(lp.Name)
     if not wsModel or not wsModel:FindFirstChild("Gun") then return end
-    local remote = getShootRemote()
-    if not remote then return end
-
-    local murdChar = murderer and murderer.Character
-    local murdHRP  = murdChar and murdChar:FindFirstChild("HumanoidRootPart")
-
-    if murdHRP then
-        pcall(function()
-            murdHRP.Anchored = true
-            murdHRP.AssemblyLinearVelocity = Vector3.zero
-            murdHRP.AssemblyAngularVelocity = Vector3.zero
-        end)
-    end
-
     local aimPos = getAimPosition()
-
     if not aimPos then return end
-
+    local remote = getShootRemote()
     local ok, err = pcall(function()
         remote:FireServer(CFrame.new(myHRP.Position, aimPos), CFrame.new(aimPos))
     end)
-
-    task.wait(0.4)
-    if murdHRP then
-        pcall(function()
-            murdHRP.Anchored = false
-        end)
-    end 
 end)
 
 local function doThrowKnife()
