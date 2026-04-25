@@ -6,10 +6,12 @@ _G.__MurderHUD_Running = true
 local WALK_LEAD = 4.6
 local WALK_LEAD_SLOW = 1.4
 local WALK_LEAD_THROW = 0.4
+local BULLET_DELAY    = 0.3
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local UIS = game:GetService("UserInputService")
+local GRAVITY         = workspace.Gravity
 
 local lp = Players.LocalPlayer
 
@@ -610,74 +612,92 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ── Aim: gun (targets murderer) ───────────────────────────────────────────────
+-- ── Aim: gun (targets murderer) ───────────────────────────────────────────────
 local function getAimPosition()
     if not murderer then return nil end
     local char = murderer.Character
     if not char then return nil end
+
     local hrp   = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
     local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
     local head  = char:FindFirstChild("Head")
     local hum   = char:FindFirstChildOfClass("Humanoid")
-    if not hrp then return nil end
+
     local myChar = lp.Character
+    local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return nil end
+
+    local vel    = hrp.AssemblyLinearVelocity
+    local pos    = hrp.Position
+    local hVel   = Vector3.new(vel.X, 0, vel.Z)
+    local speed  = hVel.Magnitude
+
     local isAir      = hum and hum.FloorMaterial == Enum.Material.Air
     local isClimbing = hum and hum:GetState() == Enum.HumanoidStateType.Climbing
-    if isAir and not isClimbing then
-        local vel2   = hrp.AssemblyLinearVelocity
-        local hVel2  = Vector3.new(vel2.X, 0, vel2.Z)
-        local lead   = hVel2.Magnitude >= 15.8 and WALK_LEAD
-                    or (hVel2.Magnitude > 0    and WALK_LEAD_SLOW or 0)
-        local hOffset = hVel2.Magnitude > 0 and hVel2.Unit * lead or Vector3.zero
-        if vel2.Y < -25 then
-            return Vector3.new(hrp.Position.X, hrp.Position.Y - 0.3, hrp.Position.Z) + hOffset
-        elseif vel2.Y > 3 and vel2.Y < 20 then
-            local t = torso or hrp
-            return t.Position + Vector3.new(0, 0.3, 0) + hOffset
-        elseif vel2.Y >= 20 and vel2.Y < 50 then
-            return Vector3.new(hrp.Position.X, hrp.Position.Y + 0.3, hrp.Position.Z) + hOffset
-        else
-            local headPos = head and head.Position or hrp.Position
-            rayParams.FilterDescendantsInstances = { myChar, char }
-            local downHit = Workspace:Raycast(headPos, Vector3.new(0, -50, 0), rayParams)
-            if downHit then
-                local midY = (headPos.Y + downHit.Position.Y) / 2
-                return Vector3.new(hrp.Position.X, midY, hrp.Position.Z) + hOffset
-            end
-            return headPos + hOffset
-        end
-    end
-    local target = torso or hrp
-    local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if myHRP then
+    local inAir      = isAir and not isClimbing
+
+    -- Relative body-part offsets at current frame (stable within 0.3 s window)
+    local torsoOff = torso and (torso.Position - pos) or Vector3.new(0, 0.9, 0)
+    local headOff  = head  and (head.Position  - pos) or Vector3.new(0, 2.5, 0)
+
+    -- ── Idle on ground: no prediction, shoot current torso ──────────────────
+    if speed < 1 and not inAir then
+        local target = torso and torso.Position or (pos + torsoOff)
         rayParams.FilterDescendantsInstances = { myChar, char }
-        for _, candidate in ipairs({ torso, head, hrp }) do
-            if candidate then
-                local dir = candidate.Position - myHRP.Position
-                local result = Workspace:Raycast(myHRP.Position, dir, rayParams)
-                if not result or result.Instance:IsDescendantOf(char) then
-                    target = candidate
-                    break
-                end
+        local dir = target - myHRP.Position
+        local hit = Workspace:Raycast(myHRP.Position, dir, rayParams)
+        if not hit or hit.Instance:IsDescendantOf(char) then
+            return target
+        end
+        -- Torso blocked → try head
+        if head then
+            local hDir = head.Position - myHRP.Position
+            local hHit = Workspace:Raycast(myHRP.Position, hDir, rayParams)
+            if not hHit or hHit.Instance:IsDescendantOf(char) then
+                return head.Position
             end
         end
+        return target  -- best guess even if blocked
     end
-    local vel  = hrp.AssemblyLinearVelocity
-    local hVel = Vector3.new(vel.X, 0, vel.Z)
-    local aboveMid = Vector3.new(0, 0.35, 0)
-    if head then
-        rayParams.FilterDescendantsInstances = { myChar, char }
-        local ceilHit = Workspace:Raycast(head.Position, Vector3.new(0, 4.5, 0), rayParams)
-        if ceilHit then
-            local midY = (head.Position.Y + ceilHit.Position.Y) / 2
-            return Vector3.new(hrp.Position.X, midY, hrp.Position.Z)
+
+    -- ── Physics prediction over BULLET_DELAY ────────────────────────────────
+    local dt = BULLET_DELAY
+
+    -- Horizontal: constant velocity (no air drag modelled in Roblox by default)
+    local predX = pos.X + vel.X * dt
+    local predZ = pos.Z + vel.Z * dt
+
+    -- Vertical: gravity when airborne, constant when grounded
+    local predY
+    if inAir then
+        predY = pos.Y + vel.Y * dt - 0.5 * GRAVITY * dt * dt
+    else
+        predY = pos.Y
+    end
+
+    local predHRP = Vector3.new(predX, predY, predZ)
+
+    -- Predicted positions for each body part
+    local candidates = {
+        predHRP + torsoOff,  -- [1] torso – primary
+        predHRP + headOff,   -- [2] head  – secondary
+        predHRP,             -- [3] HRP   – fallback
+    }
+
+    -- ── Visibility: pick first unobstructed predicted position ──────────────
+    rayParams.FilterDescendantsInstances = { myChar, char }
+    for _, cPos in ipairs(candidates) do
+        local dir = cPos - myHRP.Position
+        local hit = Workspace:Raycast(myHRP.Position, dir, rayParams)
+        if not hit or hit.Instance:IsDescendantOf(char) then
+            return cPos
         end
     end
-    if hVel.Magnitude >= 15.87 then
-        return target.Position + aboveMid + hVel.Unit * WALK_LEAD
-    elseif hVel.Magnitude >= 9 then
-        return target.Position + aboveMid + hVel.Unit * WALK_LEAD_SLOW
-    end
-    return target.Position + aboveMid
+
+    -- All predicted positions blocked → return predicted torso (best guess)
+    return candidates[1]
 end
 
 -- ── Remote getters ────────────────────────────────────────────────────────────
