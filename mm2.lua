@@ -6,7 +6,9 @@ _G.__MurderHUD_Running = true
 local WALK_LEAD = 4.6
 local WALK_LEAD_SLOW = 1.4
 local WALK_LEAD_THROW = 0.4
-local BULLET_DELAY    = 0.3
+local BULLET_DELAY    = 0.4
+local VEL_SMOOTH_SIZE  = 4
+local SPAM_JUMP_VEL    = 35
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -64,6 +66,7 @@ local FAKE_HRP_SIZE = Vector3.new(2, 2, 1)
 
 local fakeHRPs  = {}
 local charParts = {}
+local velSmooth = {}
 
 -- ── Gun drop ESP ──────────────────────────────────────────────────────────────
 local function attachGunDropHighlight(part)
@@ -571,6 +574,7 @@ end)
 Players.PlayerRemoving:Connect(function(p)
     roles[p]       = nil
     stickyRoles[p] = nil
+    velSmooth[p] = nil
     removeLpVisual(p)
     removeVisuals(p)
     if murderer == p then
@@ -590,6 +594,13 @@ RunService.Heartbeat:Connect(function()
     for p, fakePart in pairs(fakeHRPs) do
         local char = p.Character
         local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        -- Velocity smoothing sample
+        if hrp then
+            if not velSmooth[p] then velSmooth[p] = {} end
+            local buf = velSmooth[p]
+            table.insert(buf, hrp.AssemblyLinearVelocity)
+            if #buf > VEL_SMOOTH_SIZE then table.remove(buf, 1) end
+        end
         if hrp then
             fakePart.CFrame = hrp.CFrame
             if hrp.Size ~= REAL_HRP_SIZE then
@@ -612,13 +623,24 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ── Aim: gun (targets murderer) ───────────────────────────────────────────────
--- ── Aim: gun (targets murderer) ───────────────────────────────────────────────
+local function getSmoothedVel(p)
+    local buf = velSmooth[p]
+    if not buf or #buf == 0 then
+        local char = p.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        return hrp and hrp.AssemblyLinearVelocity or Vector3.zero
+    end
+    local sum = Vector3.zero
+    for _, v in ipairs(buf) do sum = sum + v end
+    return sum / #buf
+end
+
 local function getAimPosition()
     if not murderer then return nil end
     local char = murderer.Character
     if not char then return nil end
 
-    local hrp   = char:FindFirstChild("HumanoidRootPart")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
 
     local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
@@ -629,64 +651,93 @@ local function getAimPosition()
     local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myHRP then return nil end
 
-    local vel    = hrp.AssemblyLinearVelocity
-    local pos    = hrp.Position
-    local hVel   = Vector3.new(vel.X, 0, vel.Z)
-    local speed  = hVel.Magnitude
+    local rawVel  = hrp.AssemblyLinearVelocity
+    local smoothV = getSmoothedVel(murderer)
+
+    -- Blend: 60% smoothed + 40% raw so sudden direction changes still register
+    local vel = smoothV * 0.6 + rawVel * 0.4
+
+    local pos   = hrp.Position
+    local hVel  = Vector3.new(vel.X, 0, vel.Z)
+    local speed = hVel.Magnitude
 
     local isAir      = hum and hum.FloorMaterial == Enum.Material.Air
     local isClimbing = hum and hum:GetState() == Enum.HumanoidStateType.Climbing
     local inAir      = isAir and not isClimbing
 
-    -- Relative body-part offsets at current frame (stable within 0.3 s window)
+    -- Body part offsets relative to HRP (stable within prediction window)
     local torsoOff = torso and (torso.Position - pos) or Vector3.new(0, 0.9, 0)
     local headOff  = head  and (head.Position  - pos) or Vector3.new(0, 2.5, 0)
 
-    -- ── Idle on ground: no prediction, shoot current torso ──────────────────
-    if speed < 1 and not inAir then
+    -- Distance to target — closer targets need less dt adjustment
+    local dist  = (pos - myHRP.Position).Magnitude
+    local dt    = BULLET_DELAY + math.clamp(dist / 400, 0, 0.1)  -- slight distance correction, capped
+
+    -- ── Idle on ground: shoot current torso with visibility check ───────────
+    if speed < 1.5 and not inAir then
         local target = torso and torso.Position or (pos + torsoOff)
         rayParams.FilterDescendantsInstances = { myChar, char }
         local dir = target - myHRP.Position
         local hit = Workspace:Raycast(myHRP.Position, dir, rayParams)
-        if not hit or hit.Instance:IsDescendantOf(char) then
-            return target
-        end
-        -- Torso blocked → try head
+        if not hit or hit.Instance:IsDescendantOf(char) then return target end
         if head then
             local hDir = head.Position - myHRP.Position
             local hHit = Workspace:Raycast(myHRP.Position, hDir, rayParams)
-            if not hHit or hHit.Instance:IsDescendantOf(char) then
-                return head.Position
-            end
+            if not hHit or hHit.Instance:IsDescendantOf(char) then return head.Position end
         end
-        return target  -- best guess even if blocked
+        return target
     end
 
-    -- ── Physics prediction over BULLET_DELAY ────────────────────────────────
-    local dt = BULLET_DELAY
-
-    -- Horizontal: constant velocity (no air drag modelled in Roblox by default)
+    -- ── Horizontal prediction (constant velocity, blended) ──────────────────
     local predX = pos.X + vel.X * dt
     local predZ = pos.Z + vel.Z * dt
 
-    -- Vertical: gravity when airborne, constant when grounded
+    -- ── Vertical prediction ─────────────────────────────────────────────────
     local predY
     if inAir then
-        predY = pos.Y + vel.Y * dt - 0.5 * GRAVITY * dt * dt
+        local velY = vel.Y
+
+        -- Spam-jump: player just left ground with high upward velocity.
+        -- Within dt they may reach apex and start falling.
+        -- Predict to the apex if apex occurs within dt, otherwise full physics.
+        if velY >= SPAM_JUMP_VEL then
+            local tApex = velY / GRAVITY          -- time to reach apex
+            if tApex <= dt then
+                -- Will reach apex and fall for remaining (dt - tApex)
+                local apexY   = pos.Y + velY * tApex - 0.5 * GRAVITY * tApex * tApex
+                local fallDt  = dt - tApex
+                predY = apexY - 0.5 * GRAVITY * fallDt * fallDt
+            else
+                -- Still ascending at bullet arrival
+                predY = pos.Y + velY * dt - 0.5 * GRAVITY * dt * dt
+            end
+        elseif velY < 0 then
+            -- Falling or at apex: check if they'd land before dt
+            -- Conservative: full physics, but clamp so we don't go underground
+            predY = pos.Y + velY * dt - 0.5 * GRAVITY * dt * dt
+            -- If prediction goes below current ground level, clamp to HRP Y
+            -- (spam-jumper will re-jump so aim near floor level)
+            if predY < pos.Y - 8 then
+                predY = pos.Y - 4   -- aim at waist height as they land/re-jump
+            end
+        else
+            -- Slow ascent or near apex
+            predY = pos.Y + velY * dt - 0.5 * GRAVITY * dt * dt
+        end
     else
-        predY = pos.Y
+        predY = pos.Y  -- grounded: no vertical offset needed
     end
 
     local predHRP = Vector3.new(predX, predY, predZ)
 
-    -- Predicted positions for each body part
+    -- Predicted body-part positions
     local candidates = {
-        predHRP + torsoOff,  -- [1] torso – primary
-        predHRP + headOff,   -- [2] head  – secondary
-        predHRP,             -- [3] HRP   – fallback
+        predHRP + torsoOff,   -- primary
+        predHRP + headOff,    -- secondary
+        predHRP,              -- HRP fallback
     }
 
-    -- ── Visibility: pick first unobstructed predicted position ──────────────
+    -- ── Visibility: pick first unobstructed predicted point ─────────────────
     rayParams.FilterDescendantsInstances = { myChar, char }
     for _, cPos in ipairs(candidates) do
         local dir = cPos - myHRP.Position
@@ -696,8 +747,7 @@ local function getAimPosition()
         end
     end
 
-    -- All predicted positions blocked → return predicted torso (best guess)
-    return candidates[1]
+    return candidates[1]  -- all blocked: best guess
 end
 
 -- ── Remote getters ────────────────────────────────────────────────────────────
