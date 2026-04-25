@@ -779,6 +779,8 @@ end
 
 -- ── FakeBomb ──────────────────────────────────────────────────────────────────
 local function doFakeBomb()
+    task.wait(0.2)
+
     local char = lp.Character
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
@@ -794,15 +796,27 @@ local function doFakeBomb()
         return
     end
 
-    -- Place CFrame just under lp feet so they can jump on it
-    local footPos = hrp.Position - Vector3.new(0, (hrp.Size.Y / 2) + 0.5, 0)
-    local placeCF = CFrame.new(footPos)
+    local rayP = RaycastParams.new()
+    rayP.FilterType = Enum.RaycastFilterType.Exclude
+    rayP.FilterDescendantsInstances = { char }
+    local hit = Workspace:Raycast(hrp.Position, Vector3.new(0, -20, 0), rayP)
+    local footY = hit and hit.Position.Y or (hrp.Position.Y - hrp.Size.Y / 2)
+    local placeCF = CFrame.new(Vector3.new(hrp.Position.X, footY, hrp.Position.Z))
 
     local ok, err = pcall(function()
         remote:FireServer(placeCF, 50)
     end)
     if not ok then warn("[MurderHUD] FakeBomb FireServer: " .. tostring(err)) end
 end
+
+UIS.JumpRequest:Connect(function()
+    local char = lp.Character
+    if not char then return end
+    if not (char:FindFirstChild("FakeBomb")
+        or (Workspace:FindFirstChild(lp.Name) and Workspace[lp.Name]:FindFirstChild("FakeBomb"))) then return end
+    local ok, err = pcall(doFakeBomb)
+    if not ok then warn("[MurderHUD] FakeBomb JumpRequest: " .. tostring(err)) end
+end)
 
 -- ── Input ─────────────────────────────────────────────────────────────────────
 local touchStartPos = nil
