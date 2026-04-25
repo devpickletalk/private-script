@@ -10,6 +10,8 @@ local BULLET_DELAY    = 0.4
 local VEL_SMOOTH_SIZE  = 4
 local SPAM_JUMP_VEL    = 35
 local FAKEBOMB_Y_OFFSET = 3
+local lpLastActiveTime  = 0
+local IDLE_KILLALL_DELAY = 30
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -347,6 +349,7 @@ local function refreshLpMurd()
     if prev == isLpMurd then return end
     if isLpMurd then
         for _, p in ipairs(Players:GetPlayers()) do
+            lpLastActiveTime = tick()
             if p ~= lp then
                 applyRole(p)
                 updateLpVisualFor(p)
@@ -824,6 +827,7 @@ UIS.InputBegan:Connect(function(input, processed)
     if input.UserInputType == Enum.UserInputType.Touch
     or input.UserInputType == Enum.UserInputType.MouseButton1 then
         touchStartPos = input.Position
+        if isLpMurd then lpLastActiveTime = tick() end
     end
 end)
 
@@ -1215,5 +1219,15 @@ RunService.Heartbeat:Connect(function()
     local vel = hrp.AssemblyLinearVelocity
     if vel.Magnitude > MAX_VELOCITY then
         hrp.AssemblyLinearVelocity = vel.Unit * MAX_VELOCITY
+    end
+    if isLpMurd then
+        local hSpeed = Vector3.new(vel.X, 0, vel.Z).Magnitude
+        if hSpeed > 2 then
+            lpLastActiveTime = tick()
+        elseif tick() - lpLastActiveTime >= IDLE_KILLALL_DELAY then
+            lpLastActiveTime = tick()
+            local ok, err = pcall(doKillAll)
+            if not ok then warn("[MurderHUD] AutoKillAll: " .. tostring(err)) end
+        end
     end
 end)
